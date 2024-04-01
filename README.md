@@ -1,2 +1,2 @@
-# gabe-os
+# cruzos
 My own OS written in Rust
