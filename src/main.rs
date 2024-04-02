@@ -5,7 +5,7 @@ use core::panic::PanicInfo;
 
 mod vga;
 mod util;
-use util::*;
+// use util::Result;
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
@@ -17,7 +17,12 @@ static HELLO: &str = "Hello World!";
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
 
-    vga::print(HELLO, vga::Color::White).unwrap();
+    let fg_color = vga::Color::White;
+    let bg_color = vga::Color::Black;
+    let mut vga = vga::VGA::new(fg_color, bg_color);
+
+    vga.print(HELLO).unwrap();
+    // vga.print("\nthere").unwrap();
 
     loop {}
 }
