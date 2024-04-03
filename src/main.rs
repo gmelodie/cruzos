@@ -2,6 +2,7 @@
 #![no_main]
 
 use core::panic::PanicInfo;
+use core::fmt::Write;
 
 mod vga;
 mod util;
@@ -21,8 +22,9 @@ pub extern "C" fn _start() -> ! {
     let bg_color = vga::Color::Black;
     let mut vga = vga::VGA::new(fg_color, bg_color);
 
+    writeln!(vga, "Formated {} string", 12);
     vga.print(HELLO).unwrap();
-    // vga.print("\nthere").unwrap();
+    vga.print("\nthere").unwrap();
 
     loop {}
 }
