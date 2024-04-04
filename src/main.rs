@@ -20,6 +20,11 @@ pub extern "C" fn _start() -> ! {
     let mut vga = vga::VGA::new(fg_color, bg_color);
 
     writeln!(vga, "Formated {} string", 12).unwrap();
+    for _ in 0..23 {
+        // change to 24 to see first line "disappear" aka get scrolled up
+        writeln!(vga, "another line").unwrap();
+    }
+    writeln!(vga, "last line").unwrap();
 
     loop {}
 }

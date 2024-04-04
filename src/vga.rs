@@ -25,7 +25,7 @@ pub enum Color {
 
 const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
-const VGA_BUFFER_ADDRESS: usize = 0xb8000;
+const VGA_BUFFER_ADDRESS: *mut u8 = 0xb8000 as *mut u8;
 
 #[repr(C)]
 pub struct VGA {
@@ -56,8 +56,6 @@ impl core::fmt::Write for VGA {
             self.writer.write(byte, self.color());
         }
 
-        self.writer.flush();
-
         Ok(())
     }
 }
@@ -73,69 +71,65 @@ impl Position {
     fn new(row: usize, col: usize) -> Position {
         Position { row, col }
     }
-    /// Converts the current position (row, col) to 0xb8000 (the start of the VGA buffer) plus an offset
-    fn addr(&mut self) -> *mut u8 {
-        (((self.row * BUFFER_WIDTH + self.col) * 2) + VGA_BUFFER_ADDRESS) as *mut u8
-    }
 }
 
 #[repr(C)]
 #[derive(Clone, Copy)]
 struct Letter {
-    pos: Position,
     byte: u8,
     color: u8,
 }
 
 impl Letter {
-    fn new(pos: Position, byte: u8, color: u8) -> Letter {
-        Letter { pos, byte, color }
+    fn new(byte: u8, color: u8) -> Letter {
+        Letter { byte, color }
     }
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy)]
+struct Buffer {
+    letters: [[Letter; BUFFER_WIDTH]; BUFFER_HEIGHT], // height = letters.len() / width
 }
 
 #[repr(C)]
 struct Writer {
     cur_pos: Position,
-    letters: [[Letter; BUFFER_WIDTH]; BUFFER_HEIGHT], // height = letters.len() / width
+    buffer: &'static mut Buffer, // height = letters.len() / width
 }
 
 impl Writer {
     fn new() -> Writer {
         Writer {
             cur_pos: Position::new(0, 0),
-            letters: [[Letter::new(Position::new(0, 0), 0, 0); BUFFER_WIDTH]; BUFFER_HEIGHT],
+            buffer: unsafe { &mut *(VGA_BUFFER_ADDRESS as *mut Buffer) },
         }
     }
 
     fn height(&self) -> usize {
-        self.letters.len()
+        self.buffer.letters.len()
+    }
+
+    fn width(&self) -> usize {
+        self.buffer.letters[0].len()
     }
 
     fn write(&mut self, byte: u8, color: u8) {
-        // if row == 25 we are at row number 26, if height is 25 we need to push everything one line up
-        if self.cur_pos.row >= self.height() {
-            self.cur_pos.row = self.height() - 1; // set row to last row
-                                                  // TODO: push all lines back (needs vga buffer)
-        }
-        if byte == b'\n' {
+        if byte == b'\n' || self.cur_pos.col >= self.width() {
             self.cur_pos.row += 1;
             self.cur_pos.col = 0;
             return;
         }
-        self.letters[self.cur_pos.row][self.cur_pos.col] =
-            Letter::new(self.cur_pos.clone(), byte, color);
-        self.cur_pos.col += 1;
-    }
-
-    fn flush(&self) {
-        for row in self.letters {
-            for letter in row {
-                let mut pos = letter.pos;
-                unsafe {
-                    *pos.addr() = letter.byte;
-                    *pos.addr().offset(1 as isize) = letter.color;
-                }
+        // if row == 25 we are at row number 26, if height is 25 we need to push everything one line up
+        if self.cur_pos.row >= self.height() {
+            for i in 0..self.height() - 1 {
+                self.buffer.letters[i] = self.buffer.letters[i + 1].clone();
             }
+            self.cur_pos.row = self.height() - 1; // set row to last row
+                                                  // clear last row
+            self.buffer.letters[self.height() - 1] = [Letter::new(0, 0); BUFFER_WIDTH];
         }
+        self.buffer.letters[self.cur_pos.row][self.cur_pos.col] = Letter::new(byte, color);
+        self.cur_pos.col += 1;
     }
 }
