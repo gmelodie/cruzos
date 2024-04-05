@@ -6,25 +6,27 @@ use core::panic::PanicInfo;
 
 mod util;
 mod vga;
+
+use vga::stdout;
+
 // use util::Result;
 
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{info}");
     loop {}
 }
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    let fg_color = vga::Color::White;
-    let bg_color = vga::Color::Black;
-    let mut vga = vga::VGA::new(fg_color, bg_color);
-
-    writeln!(vga, "Formated {} string", 12).unwrap();
+    writeln!(stdout(), "Formated {} string", 12).unwrap();
     for _ in 0..23 {
         // change to 24 to see first line "disappear" aka get scrolled up
-        writeln!(vga, "another line").unwrap();
+        writeln!(stdout(), "another line").unwrap();
     }
-    writeln!(vga, "last line").unwrap();
+    writeln!(stdout(), "last line").unwrap();
+    println!("another last line");
+    panic!("some panic msg");
 
     loop {}
 }

@@ -1,4 +1,46 @@
+//!  # VGA
+//!  VGA text mode implementation
+//!
+//!  ## Examples
+//!  ```
+//!  let fg_color = vga::Color::White;
+//!  let bg_color = vga::Color::Black;
+//!  let mut vga = vga::Vga::new(fg_color, bg_color);
+//!  writeln!(vga, "hello {}", 12);
+//!  ```
+
+
+
+use core::fmt;
+use lazy_static::lazy_static;
+use spin::{Mutex, MutexGuard};
+
 use crate::util::Result;
+
+lazy_static! {
+    pub static ref VGA: Mutex<Vga> = Mutex::new(Vga::new(Color::White, Color::Black));
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($tt:tt)*) => (write!($crate::vga::VGA.lock(), "{}", format_args!($($tt)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    ($($tt:tt)*) => ($crate::print!("{}\n", format_args!($($tt)*)));
+}
+
+const BUFFER_HEIGHT: usize = 25;
+const BUFFER_WIDTH: usize = 80;
+const VGA_BUFFER_ADDRESS: *mut u8 = 0xb8000 as *mut u8;
+
+
+/// Acquires lock for public instance of VGA
+pub fn stdout() -> MutexGuard<'static, Vga> {
+    VGA.lock()
+}
+
 
 /// Foreground (text) colors
 #[allow(dead_code)]
@@ -22,21 +64,16 @@ pub enum Color {
     Yellow = 0xe,
     White = 0xf,
 }
-
-const BUFFER_HEIGHT: usize = 25;
-const BUFFER_WIDTH: usize = 80;
-const VGA_BUFFER_ADDRESS: *mut u8 = 0xb8000 as *mut u8;
-
 #[repr(C)]
-pub struct VGA {
+pub struct Vga {
     pub fg_color: Color,
     pub bg_color: Color,
     writer: Writer,
 }
 
-impl VGA {
-    pub fn new(fg_color: Color, bg_color: Color) -> VGA {
-        VGA {
+impl Vga {
+    pub fn new(fg_color: Color, bg_color: Color) -> Vga {
+        Vga {
             fg_color,
             bg_color,
             writer: Writer::new(),
@@ -46,8 +83,10 @@ impl VGA {
     fn color(&self) -> u8 {
         ((self.bg_color as u8) << 4) | self.fg_color as u8
     }
+
 }
-impl core::fmt::Write for VGA {
+
+impl core::fmt::Write for Vga {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         let byte_vec: &[u8] = s.as_bytes();
 
@@ -55,7 +94,6 @@ impl core::fmt::Write for VGA {
         for &byte in byte_vec.iter() {
             self.writer.write(byte, self.color());
         }
-
         Ok(())
     }
 }
