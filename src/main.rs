@@ -17,6 +17,7 @@ use util::*;
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{info}");
+    exit_qemu(QemuExitCode::Failed);
     loop {}
 }
 
@@ -41,8 +42,15 @@ pub extern "C" fn _start() -> ! {
 
 #[cfg(test)]
 mod tests {
+    use crate::TestDescAndFn;
+
     // use super::*;
     #[test_case]
+    static test_tests: TestDescAndFn = TestDescAndFn {
+        name: "test_tests",
+        func: &(test_tests as fn() -> bool)
+    };
+
     fn test_tests() -> bool {
         true
     }
