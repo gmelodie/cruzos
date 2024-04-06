@@ -10,3 +10,7 @@ bootloader = "0.9"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"]}
 spin = "0.9.8"
 
+
+# this enables us to make QEMU exit after running tests when cargo test is called
+[package.metadata.bootimage]
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]

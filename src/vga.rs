@@ -11,11 +11,10 @@
 
 
 
-use core::fmt;
 use lazy_static::lazy_static;
 use spin::{Mutex, MutexGuard};
 
-use crate::util::Result;
+// use crate::util::Result;
 
 lazy_static! {
     pub static ref VGA: Mutex<Vga> = Mutex::new(Vga::new(Color::White, Color::Black));
@@ -23,7 +22,7 @@ lazy_static! {
 
 #[macro_export]
 macro_rules! print {
-    ($($tt:tt)*) => (write!($crate::vga::VGA.lock(), "{}", format_args!($($tt)*)));
+    ($($tt:tt)*) => (write!($crate::vga::VGA.lock(), "{}", format_args!($($tt)*)).unwrap());
 }
 
 #[macro_export]
