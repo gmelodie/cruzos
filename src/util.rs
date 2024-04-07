@@ -1,30 +1,33 @@
 use core::fmt::Write;
 
-use crate::{println, print};
+use crate::{serial_println, serial_print};
 
 
 // pub type Result<'a, T> = result::Result<T, &'a str>;
 
 // TODO: error trait
 
-pub struct TestDescAndFn<'test_life> {
-    pub name: &'test_life str,
-    pub func: &'test_life fn() -> bool,
+
+pub trait Testable {
+    fn run(&self) -> ();
 }
 
+impl<T> Testable for T where T: Fn() {
+    fn run(&self) {
+        serial_print!("{}...", core::any::type_name::<T>());
+        self();
+        serial_println!("[ok]");
+    }
+}
 
-pub fn run_tests(tests: &[&TestDescAndFn]) {
+pub fn run_tests(tests: &[&dyn Testable]) {
+    serial_println!("\nTests");
+    serial_println!("-----");
     for t in tests {
-        print!("{}...", t.name);
-        if !(t.func)() {
-            println!("[failed]");
-        } else {
-            println!("[ok]");
-        }
+        t.run();
     }
 
-    // exit_qemu(QemuExitCode::Success); // TODO: uncomment when serial module is ready and output
-                                         // can be redirected to host
+    exit_qemu(QemuExitCode::Success);
 }
 
 

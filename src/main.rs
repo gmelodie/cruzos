@@ -15,6 +15,7 @@ use vga::stdout;
 use util::*;
 
 
+#[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{info}");
@@ -22,13 +23,17 @@ fn panic(info: &PanicInfo) -> ! {
     loop {}
 }
 
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &PanicInfo) -> ! {
+    serial_println!("{info}");
+    exit_qemu(QemuExitCode::Failed);
+    loop {}
+}
+
 fn main() {
-    writeln!(stdout(), "Formated {} string", 12).unwrap();
-    writeln!(stdout(), "Formated {} string", 12).unwrap();
-    writeln!(stdout(), "another line").unwrap();
-    writeln!(stdout(), "last line").unwrap();
-    println!("another last line");
-    serial_println!("this is in the console");
+    writeln!(stdout(), "CRUZOS Running...").unwrap();
+    // serial_println!("this is in the console");
     // panic!("some panic msg");
 
 }
@@ -45,16 +50,9 @@ pub extern "C" fn _start() -> ! {
 
 #[cfg(test)]
 mod tests {
-    use crate::TestDescAndFn;
-
     // use super::*;
-    #[test_case]
-    static test_tests: TestDescAndFn = TestDescAndFn {
-        name: "test_tests",
-        func: &(test_tests as fn() -> bool)
-    };
 
-    fn test_tests() -> bool {
-        true
+    #[test_case]
+    fn test_tests(){
     }
 }

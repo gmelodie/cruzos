@@ -44,7 +44,7 @@ pub fn stdout() -> MutexGuard<'static, Vga> {
 /// Foreground (text) colors
 #[allow(dead_code)]
 #[repr(u8)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Color {
     Black = 0x0,
     Blue = 0x1,
@@ -83,6 +83,10 @@ impl Vga {
         ((self.bg_color as u8) << 4) | self.fg_color as u8
     }
 
+    fn clear(&mut self) {
+        self.writer.clear();
+    }
+
 }
 
 impl core::fmt::Write for Vga {
@@ -98,7 +102,7 @@ impl core::fmt::Write for Vga {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Position {
     row: usize,
     col: usize,
@@ -111,7 +115,7 @@ impl Position {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Letter {
     byte: u8,
     color: u8,
@@ -124,9 +128,15 @@ impl Letter {
 }
 
 #[repr(transparent)]
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 struct Buffer {
     letters: [[Letter; BUFFER_WIDTH]; BUFFER_HEIGHT], // height = letters.len() / width
+}
+
+impl Buffer {
+    fn clear(&mut self) {
+        self.letters = [[Letter{byte: 0, color: 0}; BUFFER_WIDTH]; BUFFER_HEIGHT];
+    }
 }
 
 #[repr(C)]
@@ -141,6 +151,11 @@ impl Writer {
             cur_pos: Position::new(0, 0),
             buffer: unsafe { &mut *(VGA_BUFFER_ADDRESS as *mut Buffer) },
         }
+    }
+
+    fn clear(&mut self) {
+        self.buffer.clear();
+        self.cur_pos = Position::new(0, 0);
     }
 
     fn height(&self) -> usize {
@@ -169,4 +184,39 @@ impl Writer {
         self.buffer.letters[self.cur_pos.row][self.cur_pos.col] = Letter::new(byte, color);
         self.cur_pos.col += 1;
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use core::fmt::Write;
+
+    #[test_case]
+    fn test_println() {
+        // First we clear any data already present in the VGA buffer
+        VGA.lock().clear();
+        println!("this is a test line");
+        println!("another test line");
+        assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[0][0].byte);
+        assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[0][1].byte);
+        assert_eq!('i' as u8, VGA.lock().writer.buffer.letters[0][2].byte);
+        assert_eq!('s' as u8, VGA.lock().writer.buffer.letters[0][3].byte);
+
+        assert_eq!('a' as u8, VGA.lock().writer.buffer.letters[1][0].byte);
+        assert_eq!('n' as u8, VGA.lock().writer.buffer.letters[1][1].byte);
+        assert_eq!('o' as u8, VGA.lock().writer.buffer.letters[1][2].byte);
+        assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[1][3].byte);
+        assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[1][4].byte);
+        assert_eq!('e' as u8, VGA.lock().writer.buffer.letters[1][5].byte);
+        assert_eq!('r' as u8, VGA.lock().writer.buffer.letters[1][6].byte);
+    }
+
+    #[test_case]
+    fn test_many_lines() {
+        for _ in 0..200 {
+            println!("test VGA");
+        }
+    }
+
+
 }
