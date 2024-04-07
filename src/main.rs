@@ -1,19 +1,18 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![test_runner(crate::run_tests)]
+#![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::fmt::Write;
 use core::panic::PanicInfo;
+use core::fmt::Write;
 
-mod util;
-mod vga;
-mod serial;
-
-use vga::stdout;
-use util::*;
-
+use cruzos::{
+    exit_qemu,
+    println,
+    QemuExitCode,
+    vga::stdout,
+};
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -26,9 +25,7 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    serial_println!("{info}");
-    exit_qemu(QemuExitCode::Failed);
-    loop {}
+    cruzos::test_panic_handler(info)
 }
 
 fn main() {
@@ -41,18 +38,10 @@ fn main() {
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     #[cfg(test)]
-    test_main(); // tests exit QEMU when done
+    test_main();
 
     main();
 
     loop {}
 }
 
-#[cfg(test)]
-mod tests {
-    // use super::*;
-
-    #[test_case]
-    fn test_tests(){
-    }
-}
