@@ -9,6 +9,7 @@ use core::panic::PanicInfo;
 
 mod util;
 mod vga;
+mod serial;
 
 use vga::stdout;
 use util::*;
@@ -23,9 +24,11 @@ fn panic(info: &PanicInfo) -> ! {
 
 fn main() {
     writeln!(stdout(), "Formated {} string", 12).unwrap();
+    writeln!(stdout(), "Formated {} string", 12).unwrap();
     writeln!(stdout(), "another line").unwrap();
     writeln!(stdout(), "last line").unwrap();
     println!("another last line");
+    serial_println!("this is in the console");
     // panic!("some panic msg");
 
 }
