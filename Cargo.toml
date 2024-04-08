@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bootloader = "0.9"
+bootloader = "0.9" # TODO: change to bootloader_api v0.11
 lazy_static = { version = "1.4.0", features = ["spin_no_std"]}
 spin = "0.9.8"
 uart_16550 = "0.3.0"

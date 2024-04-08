@@ -83,6 +83,7 @@ impl Vga {
         ((self.bg_color as u8) << 4) | self.fg_color as u8
     }
 
+    #[allow(dead_code)]
     fn clear(&mut self) {
         self.writer.clear();
     }

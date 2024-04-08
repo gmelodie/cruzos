@@ -7,16 +7,16 @@
 use core::panic::PanicInfo;
 use core::fmt::Write;
 
-use cruzos::{
-    exit_qemu,
-    println,
-    QemuExitCode,
-    vga::stdout,
-};
+use cruzos::vga::stdout;
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    use cruzos::{
+        println,
+        exit_qemu,
+        QemuExitCode,
+    };
     println!("{info}");
     exit_qemu(QemuExitCode::Failed);
     loop {}
