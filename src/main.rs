@@ -28,19 +28,12 @@ fn panic(info: &PanicInfo) -> ! {
     cruzos::test_panic_handler(info)
 }
 
-fn main() {
-    writeln!(stdout(), "CRUZOS Running...").unwrap();
-    // serial_println!("this is in the console");
-    // panic!("some panic msg");
-
-}
-
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    writeln!(stdout(), "CRUZOS Running...").unwrap();
+
     #[cfg(test)]
     test_main();
-
-    main();
 
     loop {}
 }

@@ -7,10 +7,10 @@ edition = "2021"
 
 [dependencies]
 bootloader = "0.9" # TODO: change to bootloader_api v0.11
-lazy_static = { version = "1.4.0", features = ["spin_no_std"]}
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 spin = "0.9.8"
 uart_16550 = "0.3.0"
-x86_64 = "0.15.1"
+x86_64 = { version = "0.15.1", features = ["abi_x86_interrupt"] }
 
 
 # this enables us to make QEMU exit after running tests when cargo test is called

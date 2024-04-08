@@ -1,6 +1,7 @@
 #![no_std]
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
+#![feature(abi_x86_interrupt)]
 #![test_runner(run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -11,6 +12,11 @@ use core::fmt::Write;
 pub mod util;
 pub mod vga;
 pub mod serial;
+pub mod interrupts;
+
+pub fn init() {
+    interrupts::init_idt();
+}
 
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
     serial_println!("{info}");
@@ -27,11 +33,13 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    init();
     #[cfg(test)]
     test_main(); // tests exit QEMU when done
 
     loop {}
 }
+
 
 pub trait Testable {
     fn run(&self) -> ();
