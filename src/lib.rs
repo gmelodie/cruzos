@@ -8,6 +8,10 @@
 use core::panic::PanicInfo;
 use core::fmt::Write;
 
+use lazy_static::lazy_static;
+use spin::Mutex;
+
+use crate::vga::stdout;
 
 pub mod util;
 pub mod vga;
@@ -18,17 +22,43 @@ pub fn init() {
     interrupts::init_idt();
 }
 
+lazy_static! {
+    pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
+}
+
+pub fn should_panic() {
+    *TEST_SHOULD_PANIC.lock() = true;
+}
+
+/// Panic handler for when testing (called by all unit and integration tests)
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    serial_println!("{info}");
+    let should_panic = *TEST_SHOULD_PANIC.lock();
+    if !should_panic {
+        serial_println!("{info}");
+        exit_qemu(QemuExitCode::Failed);
+    } else {
+        // this is for testing purposes
+        *TEST_SHOULD_PANIC.lock() = false; // reset to false
+        serial_println!("[ok]");
+        exit_qemu(QemuExitCode::Success);
+    }
+    loop {}
+}
+
+/// Panic handler for when not testing (called in src/main.rs)
+pub fn panic_handler(info: &PanicInfo) -> ! {
+    println!("{info}");
     exit_qemu(QemuExitCode::Failed);
     loop {}
 }
+
 
 #[cfg(test)]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
+
 
 #[cfg(test)]
 #[no_mangle]
@@ -37,7 +67,14 @@ pub extern "C" fn _start() -> ! {
     #[cfg(test)]
     test_main(); // tests exit QEMU when done
 
+    main();
+
     loop {}
+}
+
+/// Main for when tests are not run
+pub fn main() {
+    writeln!(stdout(), "CRUZOS Running...").unwrap();
 }
 
 
@@ -69,6 +106,7 @@ pub fn run_tests(tests: &[&dyn Testable]) {
 pub enum QemuExitCode {
     Success = 0x10,
     Failed = 0x11,
+    NotExit,
 }
 
 pub fn exit_qemu(exit_code: QemuExitCode) {

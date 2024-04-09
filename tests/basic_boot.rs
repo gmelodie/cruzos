@@ -7,10 +7,11 @@
 use core::panic::PanicInfo;
 
 use core::fmt::Write;
-use cruzos::println;
+use cruzos::{init, println};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    init();
     test_main();
     loop {}
 }

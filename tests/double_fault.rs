@@ -1,3 +1,4 @@
+
 #![no_std]
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
@@ -6,26 +7,30 @@
 
 use core::panic::PanicInfo;
 
-// use core::fmt::Write;
-// use cruzos::serial_println;
+#[allow(unused)]
+use core::fmt::Write;
+#[allow(unused)]
+use cruzos::{init, serial_println, should_panic};
+
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    init();
     test_main();
     loop {}
 }
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     cruzos::test_panic_handler(info)
 }
 
-
-// #[test_case]
-// fn test_breakpoint() {
-//     x86_64::instructions::interrupts::int3(); // call breakpoint
-//     // fails if this panics instead of successfully returning to execution
-// }
-
-
+// there can't be other tests since this should panic
+#[test_case]
+fn test_double_fault() {
+    should_panic();
+    unsafe {
+        *(0xdeadbeef as *mut u8) = 42;
+    }
+    // successful if double_fault handler is called
+}

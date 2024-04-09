@@ -5,21 +5,15 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use core::fmt::Write;
 
-use cruzos::vga::stdout;
+// use core::fmt::Write;
+// use cruzos::serial_println;
+
 
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    use cruzos::{
-        println,
-        exit_qemu,
-        QemuExitCode,
-    };
-    println!("{info}");
-    exit_qemu(QemuExitCode::Failed);
-    loop {}
+    cruzos::panic_handler(info)
 }
 
 #[cfg(test)]
@@ -30,10 +24,12 @@ fn panic(info: &PanicInfo) -> ! {
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    writeln!(stdout(), "CRUZOS Running...").unwrap();
+    cruzos::init();
 
     #[cfg(test)]
-    test_main();
+    test_main(); // tests exit QEMU when done
+
+    cruzos::main();
 
     loop {}
 }
