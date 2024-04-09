@@ -1,5 +1,6 @@
 use core::fmt::Write;
 
+use crate::gdt::DOUBLE_FAULT_IST_INDEX;
 #[allow(unused)]
 use crate::{exit_qemu, QemuExitCode, println, serial_println};
 
@@ -10,7 +11,11 @@ lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint);
-        idt.double_fault.set_handler_fn(double_fault);
+        let double_fault_options = idt.double_fault.set_handler_fn(double_fault);
+        unsafe {
+            double_fault_options.set_stack_index(DOUBLE_FAULT_IST_INDEX);
+        }
+        serial_println!("IDT setup");
         idt
     };
 }
@@ -18,6 +23,7 @@ lazy_static! {
 
 extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
     println!("Got Breakpoint interrupt: {:#?}", stack_frame);
+    serial_println!("Got Breakpoint interrupt: {:#?}", stack_frame);
 }
 
 extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, error_code: u64) -> ! {
@@ -31,10 +37,12 @@ pub fn init_idt() {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    #[allow(unused)]
+    use super::*;
 
     #[test_case]
     fn test_breakpoint() {
+        serial_println!("hello");
         x86_64::instructions::interrupts::int3(); // call breakpoint
         // fails if this panics instead of successfully returning to execution
     }

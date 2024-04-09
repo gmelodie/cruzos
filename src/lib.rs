@@ -12,42 +12,23 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 use crate::vga::stdout;
+use crate::logging::{set_logging_level, get_logging_level, Level};
 
 pub mod util;
+pub mod logging;
 pub mod vga;
 pub mod serial;
 pub mod interrupts;
+pub mod gdt;
 
 pub fn init() {
     interrupts::init_idt();
-}
-
-lazy_static! {
-    pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
-}
-
-pub fn should_panic() {
-    *TEST_SHOULD_PANIC.lock() = true;
-}
-
-/// Panic handler for when testing (called by all unit and integration tests)
-pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    let should_panic = *TEST_SHOULD_PANIC.lock();
-    if !should_panic {
-        serial_println!("{info}");
-        exit_qemu(QemuExitCode::Failed);
-    } else {
-        // this is for testing purposes
-        *TEST_SHOULD_PANIC.lock() = false; // reset to false
-        serial_println!("[ok]");
-        exit_qemu(QemuExitCode::Success);
-    }
-    loop {}
+    gdt::init_gdt();
 }
 
 /// Panic handler for when not testing (called in src/main.rs)
 pub fn panic_handler(info: &PanicInfo) -> ! {
-    println!("{info}");
+    log!(Level::Error, "{info}");
     exit_qemu(QemuExitCode::Failed);
     loop {}
 }
@@ -63,7 +44,9 @@ fn panic(info: &PanicInfo) -> ! {
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    set_logging_level(Level::Debug);
     init();
+
     #[cfg(test)]
     test_main(); // tests exit QEMU when done
 
@@ -75,7 +58,32 @@ pub extern "C" fn _start() -> ! {
 /// Main for when tests are not run
 pub fn main() {
     writeln!(stdout(), "CRUZOS Running...").unwrap();
+    set_logging_level(Level::Info);
 }
+
+lazy_static! {
+    pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
+}
+
+pub fn should_panic() {
+    *TEST_SHOULD_PANIC.lock() = true;
+}
+
+/// Panic handler for when testing (called by all unit and integration tests)
+pub fn test_panic_handler(info: &PanicInfo) -> ! {
+    let should_panic = *TEST_SHOULD_PANIC.lock();
+    if !should_panic {
+        log!(Level::Error, "{info}");
+        exit_qemu(QemuExitCode::Failed);
+    } else {
+        // this is for testing purposes
+        *TEST_SHOULD_PANIC.lock() = false; // reset to false
+        serial_println!("[ok]");
+        exit_qemu(QemuExitCode::Success);
+    }
+    loop {}
+}
+
 
 
 pub trait Testable {
