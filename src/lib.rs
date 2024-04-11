@@ -6,14 +6,13 @@
 #![reexport_test_harness_main = "test_main"]
 
 use core::panic::PanicInfo;
-use core::fmt::Write;
 
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use crate::vga::stdout;
-use crate::logging::{set_logging_level, get_logging_level, Level};
+use prelude::*;
 
+pub mod prelude;
 pub mod util;
 pub mod logging;
 pub mod vga;
@@ -22,8 +21,9 @@ pub mod interrupts;
 pub mod gdt;
 
 pub fn init() {
+    set_logging_level(Level::Info);
     interrupts::init_idt();
-    gdt::init_gdt();
+    // gdt::init_gdt();
 }
 
 /// Panic handler for when not testing (called in src/main.rs)
@@ -40,38 +40,15 @@ fn panic(info: &PanicInfo) -> ! {
     test_panic_handler(info)
 }
 
-
-#[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
-    set_logging_level(Level::Debug);
-    init();
-
-    #[cfg(test)]
-    test_main(); // tests exit QEMU when done
-
-    main();
-
-    loop {}
-}
-
-/// Main for when tests are not run
-pub fn main() {
-    writeln!(stdout(), "CRUZOS Running...").unwrap();
-    set_logging_level(Level::Info);
-}
-
-lazy_static! {
-    pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
-}
-
 pub fn should_panic() {
     *TEST_SHOULD_PANIC.lock() = true;
 }
 
 /// Panic handler for when testing (called by all unit and integration tests)
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
+    log!(Level::Debug, "Test panic handler called");
     let should_panic = *TEST_SHOULD_PANIC.lock();
+    log!(Level::Debug, "Should panic is {should_panic}");
     if !should_panic {
         log!(Level::Error, "{info}");
         exit_qemu(QemuExitCode::Failed);
@@ -84,6 +61,31 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
     loop {}
 }
 
+
+
+
+#[cfg(test)]
+#[no_mangle]
+pub extern "C" fn _start() -> ! {
+    init();
+
+    #[cfg(test)]
+    test_main(); // tests exit QEMU when done
+
+    main();
+
+    loop {}
+}
+
+/// Main for when tests are not run
+pub fn main() {
+    // writeln!(stdout(), "CRUZOS Running...").unwrap();
+    log!(Level::Info, "\nCRUZOS Running!");
+}
+
+lazy_static! {
+    pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
+}
 
 
 pub trait Testable {

@@ -16,5 +16,7 @@ x86_64 = { version = "0.15.1", features = ["abi_x86_interrupt"] }
 # this enables us to make QEMU exit after running tests when cargo test is called
 [package.metadata.bootimage]
 test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]
+run-args = ["-serial", "stdio"]
 test-success-exit-code = 33 # (0x10 << 1 | 1 = 33)
 test-timeout = 30
+

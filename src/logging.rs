@@ -9,10 +9,12 @@ lazy_static! {
 #[repr(usize)]
 pub enum Level {
     Error = 0,
-    Warning = 1,
-    Info = 2,
+    Info = 1,
+    Warning = 2,
     Debug = 3
 }
+
+// TODO: add info! debug! error! etc.
 
 /// Prints a log message if level is higher or equal than current log level
 /// # Examples
@@ -22,9 +24,24 @@ pub enum Level {
 #[macro_export]
 macro_rules! log {
     ($level:path, $($tt:tt)*) => (
-        if $level >= get_logging_level() {
+        if $level <= get_logging_level() {
             $crate::serial_print!("{}\n", format_args!($($tt)*));
             $crate::print!("{}\n", format_args!($($tt)*));
+        }
+    );
+}
+
+/// Like log, but doesn't add newline to the end of log line
+/// # Examples
+/// ```
+/// logf!(LEVEL::Debug, "formated {} logs", 12);
+/// ```
+#[macro_export]
+macro_rules! logf {
+    ($level:path, $($tt:tt)*) => (
+        if $level <= get_logging_level() {
+            $crate::serial_print!("{}", format_args!($($tt)*));
+            $crate::print!("{}", format_args!($($tt)*));
         }
     );
 }

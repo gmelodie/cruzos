@@ -8,10 +8,7 @@
 use core::panic::PanicInfo;
 
 #[allow(unused)]
-use core::fmt::Write;
-#[allow(unused)]
-use cruzos::{init, serial_println, should_panic};
-
+use cruzos::{prelude::*, init, should_panic};
 
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
