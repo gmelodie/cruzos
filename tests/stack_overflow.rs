@@ -26,7 +26,9 @@ fn panic(info: &PanicInfo) -> ! {
 
 // there can't be other tests since this should panic
 #[test_case]
-fn test_recover_from_kernel_stack_overflow() {
+fn test_handle_kernel_stack_overflow() {
+    should_panic();
+    #[allow(unconditional_recursion)]
     fn stack_overflow() {
         stack_overflow();
     }

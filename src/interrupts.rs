@@ -13,9 +13,9 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint);
         let double_fault_options = idt.double_fault.set_handler_fn(double_fault);
-        // unsafe {
-        //     double_fault_options.set_stack_index(DOUBLE_FAULT_IST_INDEX);
-        // }
+        unsafe {
+            double_fault_options.set_stack_index(DOUBLE_FAULT_IST_INDEX);
+        }
         idt
     };
 }

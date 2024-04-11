@@ -1,10 +1,13 @@
 
 use core::ptr::addr_of;
 
-use x86_64::{structures::{
-    gdt::{GlobalDescriptorTable, Descriptor},
-    tss::TaskStateSegment,
-}, VirtAddr};
+use x86_64::{
+    structures::{
+        gdt::{GlobalDescriptorTable, Descriptor},
+        tss::TaskStateSegment,
+    },
+    VirtAddr,
+};
 use x86_64::registers::segmentation::SegmentSelector;
 
 use lazy_static::lazy_static;
@@ -32,9 +35,16 @@ lazy_static! {
 lazy_static! {
     pub static ref GDT: (GlobalDescriptorTable, Selectors) = {
         let mut gdt = GlobalDescriptorTable::new();
-        let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
+        // this append order is important, kernel_code_segment must come before tss_segment
         let code_selector = gdt.append(Descriptor::kernel_code_segment());
-        (gdt, Selectors {code_selector, tss_selector})
+        let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
+        (
+            gdt,
+            Selectors {
+                code_selector,
+                tss_selector
+            }
+        )
     };
 }
 

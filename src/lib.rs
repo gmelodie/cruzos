@@ -23,7 +23,7 @@ pub mod gdt;
 pub fn init() {
     set_logging_level(Level::Info);
     interrupts::init_idt();
-    // gdt::init_gdt();
+    gdt::init_gdt();
 }
 
 /// Panic handler for when not testing (called in src/main.rs)
