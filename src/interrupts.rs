@@ -5,8 +5,23 @@ use crate::{
     gdt::DOUBLE_FAULT_IST_INDEX,
 };
 
+use spin::Mutex;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use pic8259::ChainedPics;
 use lazy_static::lazy_static;
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+enum PICInterrupt {
+    Timer = PIC_1_OFFSET,
+}
+
+const PIC_1_OFFSET: u8 = 32;
+
+lazy_static! {
+    static ref PICS: Mutex<ChainedPics> = Mutex::new(unsafe {ChainedPics::new_contiguous(PIC_1_OFFSET)}); // this is the same as new(PIC_1_OFFSET, PIC_1_OFFSET + 8);
+}
+
 
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
@@ -16,10 +31,15 @@ lazy_static! {
         unsafe {
             double_fault_options.set_stack_index(DOUBLE_FAULT_IST_INDEX);
         }
+        idt[PICInterrupt::Timer as u8].set_handler_fn(timer_interrupt);
+        // TODO: set handler functions to PIC interrupts
         idt
     };
 }
 
+extern "x86-interrupt" fn timer_interrupt(stack_frame: InterruptStackFrame) {
+    unsafe {PICS.lock().notify_end_of_interrupt(PICInterrupt::Timer as u8)};
+}
 
 extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
     log!(Level::Warning, "Got Breakpoint interrupt: {:#?}", stack_frame);
@@ -31,7 +51,10 @@ extern "x86-interrupt" fn double_fault(stack_frame: InterruptStackFrame, error_c
 
 pub fn init_idt() {
     logf!(Level::Info, "Setting up IDT...");
-    // set handler to breakpoint interrupt
+
+    unsafe {PICS.lock().initialize()};
+    x86_64::instructions::interrupts::enable();
+
     IDT.load();
 
     log!(Level::Info, "OK");
