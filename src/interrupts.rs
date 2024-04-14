@@ -5,21 +5,21 @@ use crate::{
     gdt::DOUBLE_FAULT_IST_INDEX,
 };
 
-use spin::Mutex;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 use pic8259::ChainedPics;
-use lazy_static::lazy_static;
+use crate::keyboard;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(u8)]
-enum PICInterrupt {
+pub enum PICInterrupt {
     Timer = PIC_1_OFFSET,
+    Keyboard = PIC_1_OFFSET+1,
 }
 
 const PIC_1_OFFSET: u8 = 32;
 
 lazy_static! {
-    static ref PICS: Mutex<ChainedPics> = Mutex::new(unsafe {ChainedPics::new_contiguous(PIC_1_OFFSET)}); // this is the same as new(PIC_1_OFFSET, PIC_1_OFFSET + 8);
+    pub static ref PICS: Mutex<ChainedPics> = Mutex::new(unsafe {ChainedPics::new_contiguous(PIC_1_OFFSET)}); // this is the same as new(PIC_1_OFFSET, PIC_1_OFFSET + 8);
 }
 
 
@@ -32,12 +32,13 @@ lazy_static! {
             double_fault_options.set_stack_index(DOUBLE_FAULT_IST_INDEX);
         }
         idt[PICInterrupt::Timer as u8].set_handler_fn(timer_interrupt);
+        idt[PICInterrupt::Keyboard as u8].set_handler_fn(keyboard::keyboard_interrupt);
         // TODO: set handler functions to PIC interrupts
         idt
     };
 }
 
-extern "x86-interrupt" fn timer_interrupt(stack_frame: InterruptStackFrame) {
+extern "x86-interrupt" fn timer_interrupt(_stack_frame: InterruptStackFrame) {
     unsafe {PICS.lock().notify_end_of_interrupt(PICInterrupt::Timer as u8)};
 }
 

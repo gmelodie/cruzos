@@ -7,9 +7,6 @@
 
 use core::panic::PanicInfo;
 
-use lazy_static::lazy_static;
-use spin::Mutex;
-
 use prelude::*;
 
 pub mod prelude;
@@ -18,6 +15,7 @@ pub mod logging;
 pub mod vga;
 pub mod serial;
 pub mod interrupts;
+pub mod keyboard;
 pub mod gdt;
 
 pub fn init() {
@@ -30,7 +28,7 @@ pub fn init() {
 pub fn panic_handler(info: &PanicInfo) -> ! {
     log!(Level::Error, "{info}");
     exit_qemu(QemuExitCode::Failed);
-    loop {}
+    hlt_loop()
 }
 
 
@@ -58,10 +56,14 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
         serial_println!("[ok]");
         exit_qemu(QemuExitCode::Success);
     }
-    loop {}
+    hlt_loop();
 }
 
-
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
 
 
 #[cfg(test)]
@@ -74,7 +76,7 @@ pub extern "C" fn _start() -> ! {
 
     main();
 
-    loop {}
+    hlt_loop()
 }
 
 /// Main for when tests are not run

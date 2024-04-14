@@ -6,8 +6,8 @@
 
 use core::panic::PanicInfo;
 
-// use core::fmt::Write;
-// use cruzos::serial_println;
+#[allow(unused)]
+use cruzos::prelude::*;
 
 
 #[cfg(not(test))]
@@ -31,6 +31,6 @@ pub extern "C" fn _start() -> ! {
 
     cruzos::main();
 
-    loop {}
+    cruzos::hlt_loop()
 }
 

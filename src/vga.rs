@@ -194,22 +194,25 @@ mod tests {
 
     #[test_case]
     fn test_println() {
-        // First we clear any data already present in the VGA buffer
-        VGA.lock().clear();
-        println!("this is a test line");
-        println!("another test line");
-        assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[0][0].byte);
-        assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[0][1].byte);
-        assert_eq!('i' as u8, VGA.lock().writer.buffer.letters[0][2].byte);
-        assert_eq!('s' as u8, VGA.lock().writer.buffer.letters[0][3].byte);
+        use x86_64::instructions::interrupts::without_interrupts;
+        without_interrupts(|| {
+            // First we clear any data already present in the VGA buffer
+            VGA.lock().clear();
+            println!("this is a test line");
+            assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[0][0].byte);
+            assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[0][1].byte);
+            assert_eq!('i' as u8, VGA.lock().writer.buffer.letters[0][2].byte);
+            assert_eq!('s' as u8, VGA.lock().writer.buffer.letters[0][3].byte);
 
-        assert_eq!('a' as u8, VGA.lock().writer.buffer.letters[1][0].byte);
-        assert_eq!('n' as u8, VGA.lock().writer.buffer.letters[1][1].byte);
-        assert_eq!('o' as u8, VGA.lock().writer.buffer.letters[1][2].byte);
-        assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[1][3].byte);
-        assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[1][4].byte);
-        assert_eq!('e' as u8, VGA.lock().writer.buffer.letters[1][5].byte);
-        assert_eq!('r' as u8, VGA.lock().writer.buffer.letters[1][6].byte);
+            println!("another test line");
+            assert_eq!('a' as u8, VGA.lock().writer.buffer.letters[1][0].byte);
+            assert_eq!('n' as u8, VGA.lock().writer.buffer.letters[1][1].byte);
+            assert_eq!('o' as u8, VGA.lock().writer.buffer.letters[1][2].byte);
+            assert_eq!('t' as u8, VGA.lock().writer.buffer.letters[1][3].byte);
+            assert_eq!('h' as u8, VGA.lock().writer.buffer.letters[1][4].byte);
+            assert_eq!('e' as u8, VGA.lock().writer.buffer.letters[1][5].byte);
+            assert_eq!('r' as u8, VGA.lock().writer.buffer.letters[1][6].byte);
+        });
     }
 
     #[test_case]

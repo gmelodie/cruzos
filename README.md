@@ -1,4 +1,4 @@
-# cruzos
+# cruzOS
 My own OS written in Rust
 
 ```bash
