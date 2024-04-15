@@ -14,6 +14,10 @@
 use lazy_static::lazy_static;
 use spin::{Mutex, MutexGuard};
 
+use crate::log;
+#[allow(unused)]
+use crate::prelude::*;
+
 // use crate::util::Result;
 
 lazy_static! {
@@ -79,6 +83,10 @@ impl Vga {
         }
     }
 
+    pub fn backspace(&mut self) {
+        self.writer.backspace();
+    }
+
     fn color(&self) -> u8 {
         ((self.bg_color as u8) << 4) | self.fg_color as u8
     }
@@ -87,6 +95,7 @@ impl Vga {
     fn clear(&mut self) {
         self.writer.clear();
     }
+
 
 }
 
@@ -103,7 +112,7 @@ impl core::fmt::Write for Vga {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct Position {
     row: usize,
     col: usize,
@@ -112,6 +121,20 @@ struct Position {
 impl Position {
     fn new(row: usize, col: usize) -> Position {
         Position { row, col }
+    }
+    fn back(&mut self) {
+        // if we are at pos (0, 0), backing again will go out of bounds
+        if self.row == 0 && self.col == 0 {
+            return; // nothing to do, already at the begining
+        }
+        if self.col == 0 && self.row != 0 { // begining of a row
+            self.row = self.row - 1;
+            self.col = BUFFER_WIDTH-1;
+        } else if self.col != 0 { // middle of a row
+            self.col = self.col - 1;
+        } else {
+            unreachable!();
+        }
     }
 }
 
@@ -152,6 +175,20 @@ impl Writer {
             cur_pos: Position::new(0, 0),
             buffer: unsafe { &mut *(VGA_BUFFER_ADDRESS as *mut Buffer) },
         }
+    }
+
+    /// Backs twice
+    ///
+    /// hello
+    ///      ^
+    /// Back (go to "o" position), erease "o", back
+    fn backspace(&mut self) {
+        self.cur_pos.back();
+        // save background color
+        let color = self.buffer.letters[self.cur_pos.row][self.cur_pos.col].color;
+        self.write(b' ', color);
+        // we have to back again because write() moves the pointer forward
+        self.cur_pos.back();
     }
 
     fn clear(&mut self) {

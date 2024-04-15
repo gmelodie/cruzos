@@ -5,6 +5,7 @@ static UNDEFINED_KEY: char = '?'; // this is a block in code page 437
 #[derive(Debug, Clone, Copy)]
 pub enum KeyType {
     ESC,
+    Backspace,
     Ctrl,
     Shift,
     ShiftReleased,
@@ -58,6 +59,7 @@ fn moonlander_to_keytype(scancode: u8) -> KeyType {
 
     match scancode {
         1 => KeyType::ESC,
+        14 => KeyType::Backspace,
         29 => KeyType::Ctrl,
         42 => KeyType::Shift,
         56 => KeyType::Alt,

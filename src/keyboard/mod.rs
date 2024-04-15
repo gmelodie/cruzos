@@ -3,8 +3,7 @@ use x86_64::{
     structures::idt::InterruptStackFrame,
 };
 use crate::{
-    prelude::*,
-    interrupts::{PICS, PICInterrupt},
+    interrupts::{PICS, PICInterrupt}, prelude::*, vga::VGA
 };
 
 
@@ -76,6 +75,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
             let ascii = KEYBOARD.lock().to_ascii(scancode);
             logf!(Level::Info, "{}", ascii);
         }
+        KeyType::Backspace => VGA.lock().backspace(),
         KeyType::ESC => (),
         KeyType::Ctrl => (),
         KeyType::Alt => (),
@@ -84,7 +84,6 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::ArrowLeft => (),
         KeyType::ArrowRight => (),
         KeyType::Unknown => log!(Level::Warning, "Got unknown scancode {scancode}"), // do nothing
-        // TODO: backspace
     }
 //     let ascii_key = scancode2ascii(key);
 //     logf!(Level::Info, "{ascii_key}"); // logf does not insert newlines
