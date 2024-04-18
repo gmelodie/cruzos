@@ -4,27 +4,28 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
+use bootloader::{BootInfo, entry_point};
+use cruzos::prelude::*;
 use core::panic::PanicInfo;
 
-use core::fmt::Write;
-use cruzos::{init, println};
+entry_point!(basic_boot_main);
 
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
-    init();
+pub fn basic_boot_main(_boot_info: &'static BootInfo) -> ! {
+    cruzos::init();
+
+    #[cfg(test)]
     test_main();
-    loop {}
+
+    cruzos::hlt_loop()
 }
-
-
-#[test_case]
-fn test_println() {
-    println!("test_println output");
-}
-
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     cruzos::test_panic_handler(info)
+}
+
+#[test_case]
+fn test_println() {
+    println!("test_println output");
 }
 

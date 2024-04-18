@@ -49,7 +49,7 @@ extern "x86-interrupt" fn timer_interrupt(_stack_frame: InterruptStackFrame) {
 }
 
 extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
-    log!(Level::Warning, "Got Breakpoint interrupt: {:#?}", stack_frame);
+    log!(Level::Debug, "Got Breakpoint interrupt: {:#?}", stack_frame);
 }
 
 extern "x86-interrupt" fn page_fault(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {

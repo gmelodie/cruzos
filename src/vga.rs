@@ -14,7 +14,6 @@
 use lazy_static::lazy_static;
 use spin::{Mutex, MutexGuard};
 
-use crate::log;
 #[allow(unused)]
 use crate::prelude::*;
 

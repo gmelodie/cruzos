@@ -7,6 +7,8 @@
 
 use core::panic::PanicInfo;
 
+#[allow(unused_imports)]
+use bootloader::{entry_point, BootInfo};
 use prelude::*;
 
 pub mod prelude;
@@ -24,13 +26,14 @@ pub fn init() {
     gdt::init_gdt();
 }
 
+
 /// Panic handler for when not testing (called in src/main.rs)
 pub fn panic_handler(info: &PanicInfo) -> ! {
+    log!(Level::Debug, "normal panic_handler called");
     log!(Level::Error, "{info}");
     exit_qemu(QemuExitCode::Failed);
     hlt_loop()
 }
-
 
 #[cfg(test)]
 #[panic_handler]
@@ -44,7 +47,7 @@ pub fn should_panic() {
 
 /// Panic handler for when testing (called by all unit and integration tests)
 pub fn test_panic_handler(info: &PanicInfo) -> ! {
-    log!(Level::Debug, "Test panic handler called");
+    log!(Level::Debug, "test_panic_handler called");
     let should_panic = *TEST_SHOULD_PANIC.lock();
     log!(Level::Debug, "Should panic is {should_panic}");
     if !should_panic {
@@ -67,22 +70,20 @@ pub fn hlt_loop() -> ! {
 
 
 #[cfg(test)]
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
+entry_point!(test_kernel_main);
+
+/// Main for tests
+pub fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
     init();
+    set_logging_level(Level::Warning);
 
     #[cfg(test)]
-    test_main(); // tests exit QEMU when done
+    test_main();
 
-    main();
-
+    // should never get here
+    unreachable!();
+    #[allow(unreachable_code)]
     hlt_loop()
-}
-
-/// Main for when tests are not run
-pub fn main() {
-    // writeln!(stdout(), "CRUZOS Running...").unwrap();
-    log!(Level::Info, "\nCRUZOS Running!");
 }
 
 lazy_static! {
@@ -108,8 +109,8 @@ pub fn run_tests(tests: &[&dyn Testable]) {
     for t in tests {
         t.run();
     }
-
     exit_qemu(QemuExitCode::Success);
+
 }
 
 

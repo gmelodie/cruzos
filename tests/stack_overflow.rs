@@ -4,19 +4,20 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
+#[allow(unused)]
+use cruzos::{prelude::*, should_panic};
+use bootloader::{BootInfo, entry_point};
 use core::panic::PanicInfo;
 
-#[allow(unused)]
-use core::fmt::Write;
-#[allow(unused)]
-use cruzos::{init, serial_println, should_panic};
+entry_point!(stack_overflow_main);
 
+pub fn stack_overflow_main(_boot_info: &'static BootInfo) -> ! {
+    cruzos::init();
 
-#[no_mangle]
-pub extern "C" fn _start() -> ! {
-    init();
+    #[cfg(test)]
     test_main();
-    loop {}
+
+    cruzos::hlt_loop()
 }
 
 #[panic_handler]
