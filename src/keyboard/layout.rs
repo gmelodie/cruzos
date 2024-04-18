@@ -46,6 +46,7 @@ impl Layoutable for Layout {
 fn moonlander_to_keytype(scancode: u8) -> KeyType {
     log!(Level::Debug, "moonlander_to_keytype called with scancode {scancode}");
     let letters = [
+        02, 03, 04, 05, 06, 07, 08, 09, 10, 11,
         30, 48, 46, 32, 18, 33, 34, 35, 23, 36,
         37, 38, 50, 49, 24, 25, 16, 19, 31, 20,
         22, 47, 17, 45, 21, 44,
@@ -76,6 +77,16 @@ fn moonlander_to_keytype(scancode: u8) -> KeyType {
 fn moonlander_to_ascii(scancode: u8) -> char {
     log!(Level::Debug, "moonlander_to_ascii called with scancode {scancode}");
     match scancode {
+        02 => '1',
+        03 => '2',
+        04 => '3',
+        05 => '4',
+        06 => '5',
+        07 => '6',
+        08 => '7',
+        09 => '8',
+        10 => '9',
+        11 => '0',
         30 => 'a',
         48 => 'b',
         46 => 'c',
