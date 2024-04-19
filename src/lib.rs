@@ -11,21 +11,22 @@ use core::panic::PanicInfo;
 use bootloader::{entry_point, BootInfo};
 use prelude::*;
 
-pub mod prelude;
-pub mod util;
-pub mod logging;
-pub mod vga;
-pub mod serial;
+pub mod gdt;
 pub mod interrupts;
 pub mod keyboard;
-pub mod gdt;
+pub mod logging;
+pub mod memory;
+pub mod prelude;
+pub mod serial;
+pub mod util;
+pub mod vga;
 
-pub fn init() {
+pub fn init(boot_info: &BootInfo) {
     set_logging_level(Level::Info);
     interrupts::init_idt();
     gdt::init_gdt();
+    memory::init(boot_info.physical_memory_offset);
 }
-
 
 /// Panic handler for when not testing (called in src/main.rs)
 pub fn panic_handler(info: &PanicInfo) -> ! {
@@ -68,13 +69,12 @@ pub fn hlt_loop() -> ! {
     }
 }
 
-
 #[cfg(test)]
 entry_point!(test_kernel_main);
 
 /// Main for tests
-pub fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
-    init();
+pub fn test_kernel_main(boot_info: &'static BootInfo) -> ! {
+    init(boot_info);
     set_logging_level(Level::Warning);
 
     #[cfg(test)]
@@ -90,12 +90,14 @@ lazy_static! {
     pub static ref TEST_SHOULD_PANIC: Mutex<bool> = Mutex::new(false);
 }
 
-
 pub trait Testable {
     fn run(&self) -> ();
 }
 
-impl<T> Testable for T where T: Fn() {
+impl<T> Testable for T
+where
+    T: Fn(),
+{
     fn run(&self) {
         serial_print!("{}...", core::any::type_name::<T>());
         self();
@@ -110,9 +112,7 @@ pub fn run_tests(tests: &[&dyn Testable]) {
         t.run();
     }
     exit_qemu(QemuExitCode::Success);
-
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -130,12 +130,10 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     // use super::*;
 
     #[test_case]
-    fn test_tests(){
-    }
+    fn test_tests() {}
 }

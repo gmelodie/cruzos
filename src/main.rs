@@ -4,12 +4,10 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
-use core::panic::PanicInfo;
 use bootloader::{entry_point, BootInfo};
+use core::panic::PanicInfo;
 #[allow(unused)]
 use cruzos::prelude::*;
-
-
 
 #[cfg(test)]
 #[panic_handler]
@@ -26,14 +24,21 @@ fn panic(info: &PanicInfo) -> ! {
 entry_point!(kernel_main);
 
 /// Main for when tests are not run
-pub fn kernel_main(_boot_info: &'static BootInfo) -> ! {
-    cruzos::init();
+pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    cruzos::init(boot_info);
+
+    let l4_table = unsafe { cruzos::memory::active_layer_4_page_table() };
+    for entry in l4_table.iter() {
+        if !entry.is_unused() {
+            // only print used entries
+            log!(Level::Info, "{:?}", entry);
+        }
+    }
 
     #[cfg(test)]
     test_main();
     // writeln!(stdout(), "CRUZOS Running...").unwrap();
     log!(Level::Info, "\nCRUZOS Running!");
-
 
     cruzos::hlt_loop()
 }

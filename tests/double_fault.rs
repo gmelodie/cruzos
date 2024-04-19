@@ -4,15 +4,15 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
-#[allow(unused)]
-use cruzos::{test_kernel_main, prelude::*, should_panic};
-use bootloader::{BootInfo, entry_point};
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+#[allow(unused)]
+use cruzos::{prelude::*, should_panic, test_kernel_main};
 
 entry_point!(double_fault_main);
 
-pub fn double_fault_main(_boot_info: &'static BootInfo) -> ! {
-    cruzos::init();
+pub fn double_fault_main(boot_info: &'static BootInfo) -> ! {
+    cruzos::init(boot_info);
 
     #[cfg(test)]
     test_main();

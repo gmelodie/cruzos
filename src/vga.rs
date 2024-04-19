@@ -9,11 +9,6 @@
 //!  writeln!(vga, "hello {}", 12);
 //!  ```
 
-
-
-use lazy_static::lazy_static;
-use spin::{Mutex, MutexGuard};
-
 #[allow(unused)]
 use crate::prelude::*;
 
@@ -37,12 +32,10 @@ const BUFFER_HEIGHT: usize = 25;
 const BUFFER_WIDTH: usize = 80;
 const VGA_BUFFER_ADDRESS: *mut u8 = 0xb8000 as *mut u8;
 
-
 /// Acquires lock for public instance of VGA
 pub fn stdout() -> MutexGuard<'static, Vga> {
     VGA.lock()
 }
-
 
 /// Foreground (text) colors
 #[allow(dead_code)]
@@ -94,8 +87,6 @@ impl Vga {
     fn clear(&mut self) {
         self.writer.clear();
     }
-
-
 }
 
 impl core::fmt::Write for Vga {
@@ -126,10 +117,12 @@ impl Position {
         if self.row == 0 && self.col == 0 {
             return; // nothing to do, already at the begining
         }
-        if self.col == 0 && self.row != 0 { // begining of a row
+        if self.col == 0 && self.row != 0 {
+            // begining of a row
             self.row = self.row - 1;
-            self.col = BUFFER_WIDTH-1;
-        } else if self.col != 0 { // middle of a row
+            self.col = BUFFER_WIDTH - 1;
+        } else if self.col != 0 {
+            // middle of a row
             self.col = self.col - 1;
         } else {
             unreachable!();
@@ -158,7 +151,7 @@ struct Buffer {
 
 impl Buffer {
     fn clear(&mut self) {
-        self.letters = [[Letter{byte: 0, color: 0}; BUFFER_WIDTH]; BUFFER_HEIGHT];
+        self.letters = [[Letter { byte: 0, color: 0 }; BUFFER_WIDTH]; BUFFER_HEIGHT];
     }
 }
 
@@ -226,7 +219,6 @@ impl Writer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use core::fmt::Write;
 
     #[test_case]
     fn test_println() {
@@ -257,6 +249,4 @@ mod tests {
             println!("test VGA");
         }
     }
-
-
 }

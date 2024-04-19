@@ -4,15 +4,15 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
+use bootloader::{entry_point, BootInfo};
+use core::panic::PanicInfo;
 #[allow(unused)]
 use cruzos::{prelude::*, should_panic};
-use bootloader::{BootInfo, entry_point};
-use core::panic::PanicInfo;
 
 entry_point!(stack_overflow_main);
 
-pub fn stack_overflow_main(_boot_info: &'static BootInfo) -> ! {
-    cruzos::init();
+pub fn stack_overflow_main(boot_info: &'static BootInfo) -> ! {
+    cruzos::init(boot_info);
 
     #[cfg(test)]
     test_main();
@@ -38,6 +38,3 @@ fn test_handle_kernel_stack_overflow() {
     stack_overflow();
     // fails if this panics instead of successfully recovering
 }
-
-
-
