@@ -25,7 +25,7 @@ pub fn init(boot_info: &BootInfo) {
     set_logging_level(Level::Info);
     interrupts::init_idt();
     gdt::init_gdt();
-    memory::init(boot_info.physical_memory_offset);
+    memory::init(boot_info);
 }
 
 /// Panic handler for when not testing (called in src/main.rs)

@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
+use bootloader::BootInfo;
 use x86_64::instructions::tlb;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::paging::{
@@ -10,14 +11,14 @@ use x86_64::structures::paging::{
 use x86_64::{PhysAddr, VirtAddr};
 
 lazy_static! {
-    // needs to be initialized with BootInfo
+    // needs to be initialized with BootInfo (see init() fn on this file)
     pub static ref PHYSICAL_MEMORY_OFFSET: Mutex<VirtAddr> = Mutex::new(VirtAddr::new(0));
 }
 
 const PAGE_SIZE: usize = 4096;
 
-pub fn init(physical_memory_offset: u64) {
-    *PHYSICAL_MEMORY_OFFSET.lock() = VirtAddr::new(physical_memory_offset);
+pub fn init(boot_info: &BootInfo) {
+    *PHYSICAL_MEMORY_OFFSET.lock() = VirtAddr::new(boot_info.physical_memory_offset);
 }
 
 /// Returns the address of the layer 4 page table in virtual memory
@@ -83,13 +84,13 @@ unsafe fn frame_to_page_table(frame: PhysFrame) -> &'static mut PageTable {
     page_table
 }
 
-struct Allocator {
+pub struct Allocator {
     memory_map: &'static MemoryMap,
     next: usize,
 }
 
 impl Allocator {
-    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+    pub unsafe fn new(memory_map: &'static MemoryMap) -> Self {
         Allocator {
             memory_map,
             next: 0,
@@ -110,10 +111,10 @@ impl Allocator {
     }
 }
 
-/// Maps a given virtual address to a usable frame
-pub fn map_to(allocator: &mut Allocator, addr: VirtAddr) {
-    let page = Page::containing_address(addr);
-    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+/// Maps a given virtual address to a usable frame.
+/// Frame to be mapped to page is given by user.
+/// We use allocator if we need to create new pages.
+pub fn map_to(page: Page, frame: PhysFrame, flags: PageTableFlags, allocator: &mut Allocator) {
     let l4 = unsafe { active_layer_4_page_table() };
     let l3 = create_page_table(&mut l4[page.p4_index()], allocator, flags);
     let l2 = create_page_table(&mut l3[page.p3_index()], allocator, flags);
@@ -121,13 +122,9 @@ pub fn map_to(allocator: &mut Allocator, addr: VirtAddr) {
     if !l1[page.p1_index()].is_unused() {
         panic!("Page already mapped");
     }
-    let frame = match allocator.allocate_frame() {
-        Some(frame) => frame,
-        None => panic!("Could not allocate frame"),
-    };
     l1[page.p1_index()].set_frame(frame, flags);
     // ensure we're using the newest mapping
-    tlb::flush(addr);
+    tlb::flush(page.start_address());
 }
 
 /// Ensures a page table exists given a page table entry and returns it

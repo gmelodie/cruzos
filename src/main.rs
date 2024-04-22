@@ -5,7 +5,12 @@
 #![reexport_test_harness_main = "test_main"]
 
 use bootloader::{entry_point, BootInfo};
+use x86_64::structures::paging::{Page, PageTableFlags, PhysFrame, Size4KiB};
+use x86_64::{PhysAddr, VirtAddr};
+
 use core::panic::PanicInfo;
+
+use cruzos::memory;
 #[allow(unused)]
 use cruzos::prelude::*;
 
@@ -34,6 +39,18 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
             log!(Level::Info, "{:?}", entry);
         }
     }
+
+    // get page, frame, flags, and allocator to create mapping
+    let page = Page::<Size4KiB>::containing_address(VirtAddr::new(0));
+    let frame = PhysFrame::containing_address(PhysAddr::new(0xb8000));
+    let mut frame_allocator = unsafe { memory::Allocator::new(&boot_info.memory_map) };
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+
+    memory::map_to(page, frame, flags, &mut frame_allocator);
+
+    // write the string `New!` to the screen through the new mapping
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
 
     #[cfg(test)]
     test_main();
