@@ -40,17 +40,37 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
         }
     }
 
-    // get page, frame, flags, and allocator to create mapping
-    let page = Page::<Size4KiB>::containing_address(VirtAddr::new(0));
-    let frame = PhysFrame::containing_address(PhysAddr::new(0xb8000));
-    let mut frame_allocator = unsafe { memory::Allocator::new(&boot_info.memory_map) };
-    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+    set_logging_level(Level::Debug);
+    for i in 0..1000 {
+        let mut frame_allocator = unsafe { memory::Allocator::new(&boot_info.memory_map) };
+        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
 
-    memory::map_to(page, frame, flags, &mut frame_allocator);
+        let page = Page::<Size4KiB>::containing_address(VirtAddr::new(0 + 16168097 * i));
+        let frame = PhysFrame::<Size4KiB>::containing_address(PhysAddr::new(0x0 + 61168_097 * i));
 
-    // write the string `New!` to the screen through the new mapping
-    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+        log!(
+            Level::Debug,
+            "Page indexes: {:?} {:?} {:?} {:?}",
+            page.p4_index(),
+            page.p3_index(),
+            page.p2_index(),
+            page.p1_index()
+        );
+        log!(Level::Debug, "Page start addr: {:?}", page.start_address());
+
+        memory::map_to(page, frame, flags, &mut frame_allocator);
+    }
+    // // get page, frame, flags, and allocator to create mapping
+    // let page = Page::<Size4KiB>::containing_address(VirtAddr::new(0));
+    // let frame = PhysFrame::containing_address(PhysAddr::new(0xf8000));
+    // let mut frame_allocator = unsafe { memory::Allocator::new(&boot_info.memory_map) };
+    // let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+
+    // memory::map_to(page, frame, flags, &mut frame_allocator);
+
+    // // write the string `New!` to the screen through the new mapping
+    // let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    // unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
 
     #[cfg(test)]
     test_main();

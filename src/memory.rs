@@ -136,6 +136,11 @@ fn create_page_table(
     let created: bool;
 
     if entry.is_unused() {
+        log!(
+            Level::Debug,
+            "Allocating frame for entry {:?}",
+            entry.addr()
+        );
         let frame = match allocator.allocate_frame() {
             Some(frame) => frame,
             None => panic!("Could not allocate frame"),
@@ -143,6 +148,11 @@ fn create_page_table(
         entry.set_frame(frame, flags);
         created = true;
     } else {
+        log!(
+            Level::Debug,
+            "Page table already exists at entry {:?}",
+            entry.addr()
+        );
         if !flags.is_empty() && !entry.flags().contains(flags) {
             entry.set_flags(entry.flags() | flags);
         }
