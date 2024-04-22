@@ -1,8 +1,13 @@
 use crate::prelude::*;
-use bootloader::bootinfo::MemoryMap;
+use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
+use x86_64::instructions::tlb;
 use x86_64::registers::control::Cr3;
-use x86_64::structures::paging::PhysFrame;
-use x86_64::{structures::paging::PageTable, PhysAddr, VirtAddr};
+use x86_64::structures::paging::{
+    frame::PhysFrame,
+    page_table::{FrameError, PageTableEntry, PageTableFlags},
+    Page, PageTable,
+};
+use x86_64::{PhysAddr, VirtAddr};
 
 lazy_static! {
     // needs to be initialized with BootInfo
@@ -38,7 +43,6 @@ pub unsafe fn active_layer_4_page_table() -> &'static mut PageTable {
 /// Converts an virtual address to a physical one by
 /// traversing the 4 layer page tables
 pub unsafe fn virt2phys(addr: VirtAddr) -> Option<PhysAddr> {
-    use x86_64::structures::paging::page_table::FrameError;
     let page_table_indexes = [
         addr.p4_index(),
         addr.p3_index(),
@@ -52,10 +56,7 @@ pub unsafe fn virt2phys(addr: VirtAddr) -> Option<PhysAddr> {
 
     for idx in page_table_indexes {
         // convert frame to reference
-        let phys = entry_table_frame.start_address();
-        let virt = to_mapped_mem(phys);
-        let page_table_pointer: *mut PageTable = virt.as_mut_ptr();
-        page_table = unsafe { &mut *page_table_pointer }; // unsafe: creating reference to raw pointer
+        page_table = unsafe { frame_to_page_table(entry_table_frame) }; // unsafe: creating reference to raw pointer
 
         // access page table
         entry_table_frame = match page_table[idx].frame() {
@@ -73,12 +74,13 @@ fn to_mapped_mem(phys: PhysAddr) -> VirtAddr {
     *PHYSICAL_MEMORY_OFFSET.lock() + phys.as_u64()
 }
 
-fn create_page_table(layer: usize) -> &mut PageTable {
-    if layer == 0 {
-        return; // base case
-    }
-    // find free frame
-    // TODO: alloc other page tables
+unsafe fn frame_to_page_table(frame: PhysFrame) -> &'static mut PageTable {
+    // convert frame to reference
+    let phys = frame.start_address();
+    let virt = to_mapped_mem(phys);
+    let page_table_pointer: *mut PageTable = virt.as_mut_ptr();
+    let page_table = unsafe { &mut *page_table_pointer }; // unsafe: creating reference to raw pointer
+    page_table
 }
 
 struct Allocator {
@@ -100,33 +102,63 @@ impl Allocator {
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(PAGE_SIZE));
         frame_addresses.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
     }
+
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         let frame = self.usable_frames().nth(self.next);
         self.next += 1;
         frame
     }
-    // TODO: finish implementing
-    pub fn alloc_page(&mut self) -> VirtAddr {
-        let frame = match self.allocate_frame() {
+}
+
+/// Maps a given virtual address to a usable frame
+pub fn map_to(allocator: &mut Allocator, addr: VirtAddr) {
+    let page = Page::containing_address(addr);
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+    let l4 = unsafe { active_layer_4_page_table() };
+    let l3 = create_page_table(&mut l4[page.p4_index()], allocator, flags);
+    let l2 = create_page_table(&mut l3[page.p3_index()], allocator, flags);
+    let l1 = create_page_table(&mut l2[page.p2_index()], allocator, flags);
+    if !l1[page.p1_index()].is_unused() {
+        panic!("Page already mapped");
+    }
+    let frame = match allocator.allocate_frame() {
+        Some(frame) => frame,
+        None => panic!("Could not allocate frame"),
+    };
+    l1[page.p1_index()].set_frame(frame, flags);
+    // ensure we're using the newest mapping
+    tlb::flush(addr);
+}
+
+/// Ensures a page table exists given a page table entry and returns it
+fn create_page_table(
+    entry: &mut PageTableEntry,
+    allocator: &mut Allocator,
+    flags: PageTableFlags,
+) -> &'static mut PageTable {
+    let created: bool;
+
+    if entry.is_unused() {
+        let frame = match allocator.allocate_frame() {
             Some(frame) => frame,
             None => panic!("Could not allocate frame"),
         };
-        let mut l4 = unsafe { active_layer_4_page_table() };
-        // let mut l3 =
-        // 0. find unused frame in previously allocated l1
-        // 1. if all l1 entries are used, allocate new l1
-        // 2. if all l2 entries are used, allocate new l2
-        // 3. if all l3 entries are used, allocate new l3
-        // 4. if all l4 entries are used, error!! memory EXPLODING full
-        // Obs: this should be a DFS
-        //
-        // after you found the l1, l2, l3 and l4 indexes: put the mapping into the l1 table
-        // return address including l1, l2, l3 and l4 indexes as well as page offset
-        // p1[page.p1_index()].set_frame(frame, flags);
-        // addr = p1 + p2 + p3 + p4 + offset (offset is zero)
-        // VirtAddr::new(addr.start_address())
-        VirtAddr::new(0)
+        entry.set_frame(frame, flags);
+        created = true;
+    } else {
+        if !flags.is_empty() && !entry.flags().contains(flags) {
+            entry.set_flags(entry.flags() | flags);
+        }
+        created = false;
     }
+
+    let page_table = unsafe { frame_to_page_table(entry.frame().unwrap()) };
+
+    if created {
+        page_table.zero();
+    }
+
+    page_table
 }
 
 #[cfg(test)]
