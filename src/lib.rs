@@ -11,6 +11,9 @@ use core::panic::PanicInfo;
 use bootloader::{entry_point, BootInfo};
 use prelude::*;
 
+extern crate alloc;
+
+pub mod allocator;
 pub mod gdt;
 pub mod interrupts;
 pub mod keyboard;
@@ -26,6 +29,7 @@ pub fn init(boot_info: &BootInfo) {
     interrupts::init_idt();
     gdt::init_gdt();
     memory::init(boot_info);
+    allocator::init(&boot_info.memory_map);
 }
 
 /// Panic handler for when not testing (called in src/main.rs)

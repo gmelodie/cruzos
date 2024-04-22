@@ -84,19 +84,19 @@ unsafe fn frame_to_page_table(frame: PhysFrame) -> &'static mut PageTable {
     page_table
 }
 
-pub struct Allocator {
-    memory_map: &'static MemoryMap,
+pub struct FrameAllocator<'frame_life> {
+    memory_map: &'frame_life MemoryMap,
     next: usize,
 }
 
-impl Allocator {
-    pub unsafe fn new(memory_map: &'static MemoryMap) -> Self {
-        Allocator {
+impl<'frame_life> FrameAllocator<'frame_life> {
+    pub unsafe fn new(memory_map: &'frame_life MemoryMap) -> Self {
+        FrameAllocator {
             memory_map,
             next: 0,
         }
     }
-    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
+    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> + 'frame_life {
         let regions = self.memory_map.iter();
         let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
         let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
@@ -111,14 +111,18 @@ impl Allocator {
     }
 }
 
-/// Maps a given virtual address to a usable frame.
-/// Frame to be mapped to page is given by user.
+/// Maps a page (in virtual memory space) to a usable frame (in physical memory space).
+/// Frame to be mapped to page is any usable frame we can find.
 /// We use allocator if we need to create new pages.
-pub fn map_to(page: Page, frame: PhysFrame, flags: PageTableFlags, allocator: &mut Allocator) {
+pub fn map_virt(page: Page, flags: PageTableFlags, frame_allocator: &mut FrameAllocator) {
+    let frame = match frame_allocator.allocate_frame() {
+        Some(frame) => frame,
+        None => panic!("Could not allocate frame"),
+    };
     let l4 = unsafe { active_layer_4_page_table() };
-    let l3 = create_page_table(&mut l4[page.p4_index()], allocator, flags);
-    let l2 = create_page_table(&mut l3[page.p3_index()], allocator, flags);
-    let l1 = create_page_table(&mut l2[page.p2_index()], allocator, flags);
+    let l3 = create_page_table(&mut l4[page.p4_index()], frame_allocator, flags);
+    let l2 = create_page_table(&mut l3[page.p3_index()], frame_allocator, flags);
+    let l1 = create_page_table(&mut l2[page.p2_index()], frame_allocator, flags);
     if !l1[page.p1_index()].is_unused() {
         panic!("Page already mapped");
     }
@@ -130,7 +134,7 @@ pub fn map_to(page: Page, frame: PhysFrame, flags: PageTableFlags, allocator: &m
 /// Ensures a page table exists given a page table entry and returns it
 fn create_page_table(
     entry: &mut PageTableEntry,
-    allocator: &mut Allocator,
+    frame_allocator: &mut FrameAllocator,
     flags: PageTableFlags,
 ) -> &'static mut PageTable {
     let created: bool;
@@ -141,7 +145,7 @@ fn create_page_table(
             "Allocating frame for entry {:?}",
             entry.addr()
         );
-        let frame = match allocator.allocate_frame() {
+        let frame = match frame_allocator.allocate_frame() {
             Some(frame) => frame,
             None => panic!("Could not allocate frame"),
         };
