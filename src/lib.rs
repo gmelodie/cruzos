@@ -14,6 +14,8 @@ use prelude::*;
 extern crate alloc;
 
 pub mod allocator;
+mod bump_allocator;
+
 pub mod gdt;
 pub mod interrupts;
 pub mod keyboard;

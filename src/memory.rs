@@ -131,6 +131,33 @@ pub fn map_virt(page: Page, flags: PageTableFlags, frame_allocator: &mut FrameAl
     tlb::flush(page.start_address());
 }
 
+/// Unmaps a page (in virtual memory space) back to an unused frame (in physical memory space).
+pub fn unmap_virt(page: Page) {
+    let l4 = unsafe { active_layer_4_page_table() };
+
+    let l3_entry = l4[page.p4_index()];
+    if l3_entry.is_unused() {
+        panic!("Cannot unmap: page already unmapped");
+    }
+    let l3 = unsafe { frame_to_page_table(l3_entry.frame().unwrap()) };
+
+    let l2_entry = l3[page.p3_index()];
+    if l2_entry.is_unused() {
+        panic!("Cannot unmap: page already unmapped");
+    }
+    let l2 = unsafe { frame_to_page_table(l2_entry.frame().unwrap()) };
+
+    let l1_entry = l2[page.p2_index()];
+    if l1_entry.is_unused() {
+        panic!("Cannot unmap: page already unmapped");
+    }
+    let l1 = unsafe { frame_to_page_table(l1_entry.frame().unwrap()) };
+
+    l1[page.p1_index()].set_unused();
+    // ensure we're using the newest mapping
+    tlb::flush(page.start_address());
+}
+
 /// Ensures a page table exists given a page table entry and returns it
 fn create_page_table(
     entry: &mut PageTableEntry,

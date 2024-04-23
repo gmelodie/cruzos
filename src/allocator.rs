@@ -4,12 +4,15 @@ use core::ptr::null_mut;
 use x86_64::structures::paging::{page_table::PageTableFlags, Page};
 use x86_64::VirtAddr;
 
+use crate::bump_allocator;
 use crate::memory;
 #[allow(unused)]
 use crate::prelude::*;
+use crate::util::Locked;
 
 #[global_allocator]
-static HEAP_ALLOCATOR: HeapAllocator = HeapAllocator {};
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new(HEAP_START));
+// static ALLOCATOR: HeapAllocator = HeapAllocator {};
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -20,7 +23,7 @@ unsafe impl GlobalAlloc for HeapAllocator {
     unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
         // let page = Page::<Size4KiB>::containing_address(VirtAddr::new(0));
         // let mut frame_allocator = unsafe { memory::FrameAllocator::new(&boot_info.memory_map) };
-        // let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+        let flags = !(PageTableFlags::PRESENT | PageTableFlags::WRITABLE);
         null_mut()
     }
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
