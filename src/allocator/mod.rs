@@ -1,32 +1,23 @@
-use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::alloc::Layout;
 use bootloader::bootinfo::MemoryMap;
-use core::ptr::null_mut;
 use x86_64::structures::paging::{page_table::PageTableFlags, Page};
 use x86_64::VirtAddr;
 
-use crate::bump_allocator::BumpAllocator;
+use crate::allocator::bump_allocator::BumpAllocator;
 use crate::memory;
 #[allow(unused)]
 use crate::prelude::*;
 use crate::util::Locked;
 
-#[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
-// static ALLOCATOR: HeapAllocator = HeapAllocator {};
+mod bump_allocator;
+mod linked_list_allocator;
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
+pub const HEAP_END: usize = HEAP_START + HEAP_SIZE;
 
-pub struct HeapAllocator {}
-
-unsafe impl GlobalAlloc for HeapAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        null_mut()
-    }
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        panic!("dealloc should never be called")
-    }
-}
+#[global_allocator]
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
 /// Ensures that start_addr is correctly aligned by layout.align().
 /// As almost all of rust dynamic types are base 2 aligned, this will rarely be needed.

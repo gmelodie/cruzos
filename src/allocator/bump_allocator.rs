@@ -1,10 +1,11 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 
-use crate::{allocator::align_up, log, prelude::*, util::Locked};
-
-pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
-pub const HEAP_END: usize = HEAP_START + HEAP_SIZE;
+use crate::{
+    allocator::{align_up, HEAP_END, HEAP_START},
+    log,
+    prelude::*,
+    util::Locked,
+};
 
 pub struct BumpAllocator {
     alloc_refs: usize,

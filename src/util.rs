@@ -1,8 +1,6 @@
-// use core::fmt::Write;
+use core::result;
 
-// use crate::{serial_println, serial_print};
-
-// pub type Result<'a, T> = result::Result<T, &'a str>;
+pub type Result<'a, T> = result::Result<T, &'a str>;
 
 // TODO: error trait
 
