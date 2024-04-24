@@ -41,7 +41,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
         }
     }
 
-    let b = Box::new(56);
+    let _b = Box::new(56); // show off of memory allocation
 
     #[cfg(test)]
     test_main();

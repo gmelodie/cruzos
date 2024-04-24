@@ -1,6 +1,6 @@
-use bootloader::BootInfo;
+use alloc::alloc::{GlobalAlloc, Layout};
 
-use crate::{memory, util::Locked};
+use crate::{log, prelude::*, util::Locked};
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
@@ -12,7 +12,7 @@ pub struct BumpAllocator {
 }
 
 impl BumpAllocator {
-    pub const fn new(boot_info: &BootInfo) -> Self {
+    pub const fn new() -> Self {
         BumpAllocator {
             alloc_refs: 0,
             alloc_start: HEAP_START,
@@ -20,8 +20,10 @@ impl BumpAllocator {
     }
 }
 
-impl GlobalAlloc for Locked<BumpAllocator> {
+unsafe impl GlobalAlloc for Locked<BumpAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        log!(Level::Debug, "allocating {} bytes", layout.size());
+        // TODO: memory align
         let new_heap_end = self.lock().alloc_start + layout.size();
         if new_heap_end > HEAP_END {
             panic!("Not enough space left to allocate");
@@ -35,34 +37,48 @@ impl GlobalAlloc for Locked<BumpAllocator> {
         }
 
         // alloc space
-        *self.lock().alloc_refs += 1;
-        *self.lock().alloc_start += layout.size();
+        self.lock().alloc_refs += 1;
+        self.lock().alloc_start += layout.size();
 
-        // map allocd pages
-        // TODO: alloc the amount of pages we want, not just one
-        // let page = Page::<Size4KiB>::containing_address(VirtAddr::new(alloc_addr));
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        let mut frame_allocator: unsafe { memory::FrameAllocator::new(&boot_info.memory_map) };
-        for page in allocd_pages {
-            memory::map_virt(page, flags, &mut frame_allocator);
-        }
+        // no need to map since init() already maps it all
 
-        (alloc_addr as *mut u8)
+        alloc_addr as *mut u8
     }
 
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+    unsafe fn dealloc(&self, _ptr: *mut u8, layout: Layout) {
+        log!(Level::Debug, "deallocating {} bytes", layout.size());
         // decrement alloc_refs
-        *self.lock().alloc_refs -= 1;
-        if self.lock().alloc_refs == 0 {
-            // unmap all heap memory
-            let heap_start = VirtAddr::new(HEAP_START as u64);
-            let heap_start_page = Page::containing_address(heap_start);
-            let heap_end = VirtAddr::new(HEAP_END as u64);
-            let heap_end_page = Page::containing_address(heap_end);
+        self.lock().alloc_refs -= 1;
 
-            for page in Page::range_inclusive(heap_start_page, heap_end_page) {
-                memory::unmap_virt(page);
-            }
+        if self.lock().alloc_refs == 0 {
+            self.lock().alloc_refs = 0;
+            self.lock().alloc_start = HEAP_START;
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    use alloc::boxed::Box;
+
+    #[test_case]
+    fn test_alloc_mem() {
+        let mut actual = Box::new(56);
+        let expected = 57;
+        *actual += 1;
+        assert_eq!(*actual, expected);
+    }
+
+    #[test_case]
+    fn test_alloc_many() {
+        for i in 0..1000 {
+            let mut actual = Box::new(i);
+            *actual += 1;
+            let expected = i + 1;
+            assert_eq!(*actual, expected);
+        }
+    }
+
+    // TODO: create test for unaligned memory (should fail since we don't implement alignment yet)
 }

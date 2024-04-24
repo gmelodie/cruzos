@@ -135,19 +135,19 @@ pub fn map_virt(page: Page, flags: PageTableFlags, frame_allocator: &mut FrameAl
 pub fn unmap_virt(page: Page) {
     let l4 = unsafe { active_layer_4_page_table() };
 
-    let l3_entry = l4[page.p4_index()];
+    let l3_entry = &l4[page.p4_index()];
     if l3_entry.is_unused() {
         panic!("Cannot unmap: page already unmapped");
     }
     let l3 = unsafe { frame_to_page_table(l3_entry.frame().unwrap()) };
 
-    let l2_entry = l3[page.p3_index()];
+    let l2_entry = &l3[page.p3_index()];
     if l2_entry.is_unused() {
         panic!("Cannot unmap: page already unmapped");
     }
     let l2 = unsafe { frame_to_page_table(l2_entry.frame().unwrap()) };
 
-    let l1_entry = l2[page.p2_index()];
+    let l1_entry = &l2[page.p2_index()];
     if l1_entry.is_unused() {
         panic!("Cannot unmap: page already unmapped");
     }
