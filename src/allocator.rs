@@ -28,6 +28,23 @@ unsafe impl GlobalAlloc for HeapAllocator {
     }
 }
 
+/// Ensures that start_addr is correctly aligned by layout.align().
+/// As almost all of rust dynamic types are base 2 aligned, this will rarely be needed.
+/// Still good to have.
+pub fn align_up(start_addr: usize, layout: &Layout) -> usize {
+    let align = layout.align();
+    let remainder = start_addr % align;
+    let aligned_addr = match remainder {
+        0 => start_addr, // address is aligned
+        _ => {
+            let difference = align - remainder;
+            start_addr + difference
+        }
+    };
+
+    aligned_addr
+}
+
 /// Maps all the heap virtual memory locations to usable physical memory frames.
 pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
     let mut frame_allocator = unsafe { memory::FrameAllocator::new(memory_map) };
@@ -40,5 +57,37 @@ pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
 
     for page in Page::range_inclusive(heap_start_page, heap_end_page) {
         memory::map_virt(page, flags, &mut frame_allocator);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+    use alloc::{boxed::Box, string::String};
+
+    #[test_case]
+    fn test_alloc_mem() {
+        let mut actual = Box::new(56);
+        let expected = 57;
+        *actual += 1;
+        assert_eq!(*actual, expected);
+    }
+
+    #[test_case]
+    fn test_alloc_many() {
+        for i in 0..1000 {
+            let mut actual = Box::new(i);
+            *actual += 1;
+            let expected = i + 1;
+            assert_eq!(*actual, expected);
+        }
+    }
+
+    #[test_case]
+    fn test_alloc_unaligned() {
+        let mut string = String::new();
+        for _ in 0..1000 {
+            string.push('a');
+        }
     }
 }
