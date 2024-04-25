@@ -4,6 +4,7 @@
 #![feature(abi_x86_interrupt)]
 #![test_runner(run_tests)]
 #![reexport_test_harness_main = "test_main"]
+#![feature(const_mut_refs)] // for linked_list_allocator (using mut ref in const function)
 
 use core::panic::PanicInfo;
 

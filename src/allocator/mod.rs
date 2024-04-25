@@ -3,11 +3,13 @@ use bootloader::bootinfo::MemoryMap;
 use x86_64::structures::paging::{page_table::PageTableFlags, Page};
 use x86_64::VirtAddr;
 
-use crate::allocator::bump_allocator::BumpAllocator;
 use crate::memory;
 #[allow(unused)]
 use crate::prelude::*;
 use crate::util::Locked;
+
+use crate::allocator::bump_allocator::BumpAllocator;
+use crate::allocator::linked_list_allocator::LinkedListAllocator;
 
 mod bump_allocator;
 mod linked_list_allocator;
@@ -17,7 +19,8 @@ pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 pub const HEAP_END: usize = HEAP_START + HEAP_SIZE;
 
 #[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+// static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
 /// Ensures that start_addr is correctly aligned by layout.align().
 /// As almost all of rust dynamic types are base 2 aligned, this will rarely be needed.
@@ -53,7 +56,7 @@ pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
 
 #[cfg(test)]
 mod tests {
-    // use super::*;
+    use super::*;
     use alloc::{boxed::Box, string::String};
 
     #[test_case]
@@ -80,5 +83,15 @@ mod tests {
         for _ in 0..1000 {
             string.push('a');
         }
+    }
+
+    #[test_case]
+    fn many_boxes_long_lived() {
+        let long_lived = Box::new(1); // new
+        for i in 0..HEAP_SIZE {
+            let x = Box::new(i);
+            assert_eq!(*x, i);
+        }
+        assert_eq!(*long_lived, 1); // new
     }
 }
