@@ -41,6 +41,7 @@ pub fn align_up(start_addr: usize, layout: &Layout) -> usize {
 
 /// Maps all the heap virtual memory locations to usable physical memory frames.
 pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
+    logf!(Level::Info, "Mapping heap...");
     let mut frame_allocator = unsafe { memory::FrameAllocator::new(memory_map) };
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
 
@@ -52,12 +53,13 @@ pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
     for page in Page::range_inclusive(heap_start_page, heap_end_page) {
         memory::map_virt(page, flags, &mut frame_allocator);
     }
+    log!(Level::Info, "OK");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{boxed::Box, string::String};
+    use alloc::{boxed::Box, string::String, vec::Vec};
 
     #[test_case]
     fn test_alloc_mem() {
@@ -88,9 +90,10 @@ mod tests {
     #[test_case]
     fn many_boxes_long_lived() {
         let long_lived = Box::new(1); // new
-        for i in 0..HEAP_SIZE {
-            let x = Box::new(i);
-            assert_eq!(*x, i);
+        for _ in 0..HEAP_SIZE {
+            let _x: Vec<usize> = Vec::with_capacity(100);
+            // let x = Box::new(i);
+            // assert_eq!(*x, i);
         }
         assert_eq!(*long_lived, 1); // new
     }

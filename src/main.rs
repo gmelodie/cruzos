@@ -33,6 +33,8 @@ entry_point!(kernel_main);
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     cruzos::init(boot_info);
 
+    // set_logging_level(Level::Debug);
+
     let l4_table = unsafe { cruzos::memory::active_layer_4_page_table() };
     for entry in l4_table.iter() {
         if !entry.is_unused() {

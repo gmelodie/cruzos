@@ -24,15 +24,19 @@ impl ReusableSpace {
     }
 
     fn end_addr(&self) -> usize {
-        self.start_addr() + self.size
+        self.start_addr() + self.size - 1
     }
 
     fn is_suitable(&self, layout: &Layout) -> bool {
         // block is suitable if aligned address withing block + size is also within block
         let aligned_start_addr = align_up(self.start_addr(), layout);
-        let aligned_end_addr = aligned_start_addr + layout.size();
+        let aligned_end_addr = aligned_start_addr + layout.size() - 1;
 
+        if self.end_addr() < aligned_end_addr {
+            return false;
+        }
         let excess_size = self.end_addr() - aligned_end_addr;
+
         // excess after aligning up (simulating putting an entry of free memory here)
         let aligned_excess = align_up(aligned_end_addr, &Layout::new::<ReusableSpace>());
         let aligned_excess_size = aligned_excess + mem::size_of::<ReusableSpace>();
@@ -42,7 +46,7 @@ impl ReusableSpace {
             return false;
         }
 
-        aligned_start_addr + layout.size() < self.end_addr()
+        aligned_end_addr <= self.end_addr()
     }
 }
 
@@ -65,10 +69,12 @@ impl LinkedListAllocator {
         // we don't use the root since it is always a dummy value
         let mut current = &mut self.root_reusable;
 
-        while let Some(ref mut region) = current.next.take() {
+        while let Some(ref mut region) = current.next {
             if region.is_suitable(layout) {
-                current.next = region.next.take();
-                return Some((region.start_addr(), region.size));
+                let next = region.next.take();
+                let ret = Some((region.start_addr(), region.size));
+                current.next = next;
+                return ret;
             } else {
                 current = current.next.as_mut().unwrap();
             }
@@ -81,8 +87,10 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         log!(Level::Debug, "allocating {} bytes", layout.size());
 
-        let alloc_addr = match self.lock().find_suitable_reusable_slot(&layout) {
+        let reusable_slot = self.lock().find_suitable_reusable_slot(&layout);
+        let alloc_addr = match reusable_slot {
             Some((start_addr, size)) => {
+                log!(Level::Debug, "Found reusable slot");
                 let excess_size = size - layout.size();
                 // if there is excess, create new ReusableSpace entry
                 // (checks were already done by is_suitable)
@@ -104,7 +112,8 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
                 // alloc at memory end
                 //
                 // first we align memory
-                let aligned_start_addr = align_up(self.lock().alloc_start, &layout);
+                let alloc_start = self.lock().alloc_start;
+                let aligned_start_addr = align_up(alloc_start, &layout);
 
                 // then we check if there's enough space after aligning
                 let new_alloc_end = aligned_start_addr + layout.size();
@@ -134,12 +143,18 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
         // reusable entry, otherwise memory fuckers)
         let is_aligned = align_up(ptr as usize, &Layout::new::<ReusableSpace>()) == ptr as usize;
         if layout.size() >= mem::size_of::<ReusableSpace>() && is_aligned {
-            // create new space
+            // create new reusable node
             let mut space = ReusableSpace::new(layout.size());
             // make space point to next of root
             space.next = self.lock().root_reusable.next.take();
             // write space struct at pointer position
             let node_ptr = ptr as *mut ReusableSpace;
+            log!(
+                Level::Debug,
+                "adding {} bytes of reusable space at addr {}",
+                space.size,
+                ptr as usize
+            );
             node_ptr.write(space);
             // make head pont to new space (root -> space -> old_next_of_head)
             self.lock().root_reusable.next = Some(&mut *node_ptr);
