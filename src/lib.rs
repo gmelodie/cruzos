@@ -23,6 +23,7 @@ pub mod logging;
 pub mod memory;
 pub mod prelude;
 pub mod serial;
+pub mod task;
 pub mod util;
 pub mod vga;
 

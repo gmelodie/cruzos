@@ -29,6 +29,15 @@ fn panic(info: &PanicInfo) -> ! {
 
 entry_point!(kernel_main);
 
+async fn async_number() -> u32 {
+    42
+}
+
+async fn example_task() {
+    let number = async_number().await;
+    log!(Level::Info, "Async number is {number}");
+}
+
 /// Main for when tests are not run
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     cruzos::init(boot_info);
