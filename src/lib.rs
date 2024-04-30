@@ -1,4 +1,5 @@
 #![no_std]
+#![feature(noop_waker)] // TODO: remove this when using actual waker in Task
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]

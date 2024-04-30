@@ -8,7 +8,7 @@ use crate::memory;
 use crate::prelude::*;
 use crate::util::Locked;
 
-use crate::allocator::bump_allocator::BumpAllocator;
+// use crate::allocator::bump_allocator::BumpAllocator;
 use crate::allocator::linked_list_allocator::LinkedListAllocator;
 
 mod bump_allocator;

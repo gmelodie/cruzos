@@ -9,6 +9,8 @@ use bootloader::{entry_point, BootInfo};
 extern crate alloc;
 
 use alloc::boxed::Box;
+use cruzos::task::simple_executor::SimpleExecutor;
+use cruzos::task::Task;
 
 use core::panic::PanicInfo;
 
@@ -29,13 +31,8 @@ fn panic(info: &PanicInfo) -> ! {
 
 entry_point!(kernel_main);
 
-async fn async_number() -> u32 {
-    42
-}
-
-async fn example_task() {
-    let number = async_number().await;
-    log!(Level::Info, "Async number is {number}");
+async fn example_task(num: u64) {
+    log!(Level::Info, "Async number is {num}");
 }
 
 /// Main for when tests are not run
@@ -52,7 +49,16 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
         }
     }
 
-    let _b = Box::new(56); // show off of memory allocation
+    // show off memory allocation
+    let _b = Box::new(56);
+
+    // show off async capabilities
+    let mut executor = SimpleExecutor::new(50);
+    let future1 = example_task(42);
+    let future2 = example_task(43);
+    executor.spawn(Task::new(future2));
+    executor.spawn(Task::new(future1));
+    executor.run();
 
     #[cfg(test)]
     test_main();
