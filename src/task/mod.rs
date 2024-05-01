@@ -1,44 +1,26 @@
-use alloc::boxed::Box;
-use alloc::sync::Arc;
-use alloc::task::Wake;
+use alloc::{boxed::Box, sync::Arc, task::Wake};
 use core::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll},
+    task::{Context, Poll, Waker},
 };
+
+use crate::util::Locked;
 
 pub mod simple_executor;
 
-pub struct Task<'task_life> {
+pub struct Task {
     future: Pin<Box<dyn Future<Output = ()>>>,
-    cx: Pin<Box<Context<'task_life>>>,
     ready: bool,
+    waker: Arc<Locked<TaskWaker>>,
 }
 
-// TODO: waker struct
-struct TaskWaker {
-    blocked: bool,
-}
-
-impl TaskWaker {
-    fn new() -> Self {
-        TaskWaker { blocked: false }
-    }
-}
-
-impl Wake for TaskWaker {
-    fn wake(self: Arc<Self>) {
-        self.blocked = false;
-    }
-}
-
-impl Task<'_> {
+impl Task {
     pub fn new(future: impl Future<Output = ()> + 'static) -> Self {
-        let waker = Arc::new(TaskWaker::new()).into();
         Task {
             future: Box::pin(future),
-            cx: Box::pin(Context::from_waker(waker)),
             ready: false,
+            waker: TaskWaker::new(false),
         }
     }
 
@@ -50,14 +32,36 @@ impl Task<'_> {
         self.ready
     }
 
-    pub fn poll(&mut self) -> Poll<()> {
-        let cx = &mut self.cx;
+    pub fn poll(&mut self, cx: &mut Context) -> Poll<()> {
         let poll_result = self.future.as_mut().poll(cx);
-        if let Poll::Ready(_) = poll_result {
-            self.ready = true;
-        } else {
-            self.cx.waker().blocked = true;
+        match poll_result {
+            Poll::Ready(_) => {
+                self.ready = true;
+            }
+            Poll::Pending => {
+                // reblock task, to be unblocked by Waker
+                self.waker.lock().blocked = true;
+            }
         }
         poll_result
+    }
+}
+
+struct TaskWaker {
+    blocked: bool,
+}
+
+impl TaskWaker {
+    fn new(blocked: bool) -> Arc<Locked<Self>> {
+        Arc::new(Locked::new(TaskWaker { blocked }))
+    }
+    fn unblock(&mut self) {
+        self.blocked = false;
+    }
+}
+
+impl Wake for Locked<TaskWaker> {
+    fn wake(self: Arc<Self>) {
+        self.lock().unblock();
     }
 }
