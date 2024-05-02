@@ -52,6 +52,10 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // show off memory allocation
     let _b = Box::new(56);
 
+    #[cfg(test)]
+    test_main();
+    log!(Level::Info, "\nCruzOS Running!");
+
     // show off async capabilities
     let mut executor = SimpleExecutor::new(50);
     let future1 = example_task(42);
@@ -60,11 +64,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     executor.spawn(Task::new(future1));
     executor.run();
 
-    #[cfg(test)]
-    test_main();
-    log!(Level::Info, "\nCruzOS Running!");
-
-    cruzos::hlt_loop()
+    // cruzos::hlt_loop()
 }
 
 #[test_case]
