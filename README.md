@@ -19,3 +19,4 @@ rustup component add llvm-tools-preview
 - USB
 - HDMI or DisplayPort over VGA
 - Process scheduling (requirements??)
+    - MLFQ with configurable parameters
