@@ -9,6 +9,7 @@ use bootloader::{entry_point, BootInfo};
 extern crate alloc;
 
 use alloc::boxed::Box;
+use cruzos::apps::crash::Crash;
 use cruzos::task::simple_executor::SimpleExecutor;
 use cruzos::task::Task;
 
@@ -56,15 +57,18 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     test_main();
     log!(Level::Info, "\nCruzOS Running!");
 
-    // show off async capabilities
-    let mut executor = SimpleExecutor::new(50);
-    let future1 = example_task(42);
-    let future2 = example_task(43);
-    executor.spawn(Task::new(future2));
-    executor.spawn(Task::new(future1));
-    executor.run();
+    let shell = Crash::new();
+    shell.run();
 
-    // cruzos::hlt_loop()
+    // show off async capabilities
+    // let mut executor = SimpleExecutor::new(50);
+    // let future1 = example_task(42);
+    // let future2 = example_task(43);
+    // executor.spawn(Task::new(future2));
+    // executor.spawn(Task::new(future1));
+    // executor.run();
+
+    cruzos::hlt_loop()
 }
 
 #[test_case]

@@ -17,6 +17,7 @@ extern crate alloc;
 
 pub mod allocator;
 
+pub mod apps;
 pub mod gdt;
 pub mod interrupts;
 pub mod keyboard;
