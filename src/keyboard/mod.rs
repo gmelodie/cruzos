@@ -55,7 +55,7 @@ impl Keyboard {
     }
 }
 
-/// Handles an interrupt for a keyboard event should not b
+/// Handles an interrupt for a keyboard event (should not lock VGA since it will likely deadlock)
 pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
     let scancode: u8 = unsafe {
         let mut port = Port::new(0x60);
@@ -73,7 +73,13 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
             // put char in buffer
             KEYBOARD_BUFFER.lock().push(ascii);
         }
-        KeyType::Backspace => KEYBOARD_BUFFER.lock().backspace(),
+        KeyType::Backspace => {
+            if KEYBOARD_BUFFER.lock().is_empty() {
+                // TODO: need to lock VGA here but can't (deadlock)
+            } else {
+                KEYBOARD_BUFFER.lock().pop_end();
+            }
+        }
         KeyType::ESC => (),
         KeyType::Ctrl => (),
         KeyType::Alt => (),
@@ -81,7 +87,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::ArrowDown => (),
         KeyType::ArrowLeft => (),
         KeyType::ArrowRight => (),
-        KeyType::Unknown => log!(Level::Warning, "Got unknown scancode {scancode}"), // do nothing
+        KeyType::Unknown => (), // do nothing
     }
     //     let ascii_key = scancode2ascii(key);
     //     logf!(Level::Info, "{ascii_key}"); // logf does not insert newlines
@@ -92,23 +98,26 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
     };
 }
 
-/// Reads characters from the keyboard buffer into string until \n or \0 is reached
-/// includes consuming of \n or \0
-/// Returns number of read characters
-pub fn scanf(string: &mut String) -> usize {
-    while KEYBOARD_BUFFER.lock().is_empty() {} // wait until buffer has chars
+/// Reads characters from the keyboard buffer into string until \n or is reached. Consumes `\n`.
+/// Returns number of read characters.
+pub async fn scanf(string: &mut String) -> usize {
+    // while KEYBOARD_BUFFER.lock().is_empty() {} // wait until buffer has chars
 
-    let mut kb = KEYBOARD_BUFFER.lock();
     let mut len = 0;
 
-    let mut c = kb.pop();
-    string.push(c);
-    len += 1;
-    while c != '\0' && c != '\n' {
-        c = kb.pop();
+    // TODO: implement futures_util::Stream for KEYBOARD_BUFFER and use StreamExt's functions
+    let mut c = KEYBOARD_BUFFER.lock().pop();
+    // while ome(c) = stream.next().await
+    while c != '\n' {
+        if c == '\0' {
+            // TODO: yield here
+            continue;
+        }
         string.push(c);
         len += 1;
+        c = KEYBOARD_BUFFER.lock().pop();
     }
+
     len
 }
 
