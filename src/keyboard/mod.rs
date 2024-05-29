@@ -55,12 +55,12 @@ impl Keyboard {
     }
 }
 
+/// Handles an interrupt for a keyboard event should not b
 pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
     let scancode: u8 = unsafe {
         let mut port = Port::new(0x60);
         port.read()
     };
-    log!(Level::Debug, "Got input from keyboard: {scancode}");
 
     let keytype = KEYBOARD.lock().layout.to_keytype(scancode);
     match keytype {
@@ -73,7 +73,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
             // put char in buffer
             KEYBOARD_BUFFER.lock().push(ascii);
         }
-        KeyType::Backspace => VGA.lock().backspace(),
+        KeyType::Backspace => KEYBOARD_BUFFER.lock().backspace(),
         KeyType::ESC => (),
         KeyType::Ctrl => (),
         KeyType::Alt => (),
