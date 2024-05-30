@@ -1,10 +1,10 @@
 use crate::prelude::*;
 
-pub struct Crash {}
+pub struct Gash {}
 
-impl Crash {
+impl Gash {
     pub fn new() -> Self {
-        Crash {}
+        Gash {}
     }
     pub async fn run(&self) {
         let mut input = String::new();

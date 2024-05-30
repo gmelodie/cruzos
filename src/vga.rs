@@ -169,11 +169,12 @@ impl Writer {
         }
     }
 
-    /// Backs twice
+    /// Erases last character from screen
     ///
     /// hello
     ///      ^
-    /// Back (go to "o" position), erease "o", back
+    /// Back (go to "o" position), write ' ', back again
+    /// We go back again because write() moves the pointer forward
     fn backspace(&mut self) {
         self.cur_pos.back();
         // save background color
