@@ -12,7 +12,6 @@ impl Crash {
             print!("root@crash # ");
             scanf(&mut input).await;
             // TODO: run input
-            print!("{input}");
             input.clear();
         }
     }

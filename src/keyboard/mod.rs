@@ -8,7 +8,7 @@ use x86_64::{instructions::port::Port, structures::idt::InterruptStackFrame};
 mod buffer;
 mod layout;
 
-use buffer::KEYBOARD_BUFFER;
+use buffer::{sync, POP_BUFFER, PUSH_BUFFER};
 use layout::{KeyType, Layout, Layoutable};
 
 lazy_static! {
@@ -57,6 +57,7 @@ impl Keyboard {
 
 /// Handles an interrupt for a keyboard event (should not lock VGA since it will likely deadlock)
 pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
+    // 1. read the pressed caracter into PUSH_BUFFER
     let scancode: u8 = unsafe {
         let mut port = Port::new(0x60);
         port.read()
@@ -71,14 +72,10 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
             let ascii = KEYBOARD.lock().to_ascii(scancode);
             // acquire lock for buffer
             // put char in buffer
-            KEYBOARD_BUFFER.lock().push(ascii);
+            PUSH_BUFFER.lock().push(ascii);
         }
         KeyType::Backspace => {
-            if KEYBOARD_BUFFER.lock().is_empty() {
-                // TODO: need to lock VGA here but can't (deadlock)
-            } else {
-                KEYBOARD_BUFFER.lock().pop_end();
-            }
+            PUSH_BUFFER.lock().pop_end();
         }
         KeyType::ESC => (),
         KeyType::Ctrl => (),
@@ -89,8 +86,11 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::ArrowRight => (),
         KeyType::Unknown => (), // do nothing
     }
-    //     let ascii_key = scancode2ascii(key);
-    //     logf!(Level::Info, "{ascii_key}"); // logf does not insert newlines
+    // 2. try to sync PUSH_BUFFER and POP_BUFFER (sometimes we can't cuz POP_BUFFER is locked
+    //    somewhere else)
+    if let Some(mut pop) = POP_BUFFER.try_lock() {
+        sync(&mut PUSH_BUFFER.lock(), &mut pop);
+    }
 
     unsafe {
         PICS.lock()
@@ -101,24 +101,20 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
 /// Reads characters from the keyboard buffer into string until \n or is reached. Consumes `\n`.
 /// Returns number of read characters.
 pub async fn scanf(string: &mut String) -> usize {
-    // while KEYBOARD_BUFFER.lock().is_empty() {} // wait until buffer has chars
+    // while POP_BUFFER.lock().is_empty() {} // wait until buffer has chars
 
     let mut len = 0;
 
-    // TODO: implement futures_util::Stream for KEYBOARD_BUFFER and use StreamExt's functions
-    let mut c = KEYBOARD_BUFFER.lock().pop();
-    // while ome(c) = stream.next().await
-    while c != '\n' {
-        if c == '\0' {
-            // TODO: yield here
-            continue;
+    loop {
+        if let Some(c) = POP_BUFFER.lock().pop() {
+            print!("{c}");
+            if c == '\n' {
+                return len;
+            }
+            string.push(c);
+            len += 1;
         }
-        string.push(c);
-        len += 1;
-        c = KEYBOARD_BUFFER.lock().pop();
     }
-
-    len
 }
 
 // fn scancode2ascii(scancode: u8) -> char {
