@@ -47,14 +47,14 @@ impl SimpleExecutor {
 
             self.tasks.retain(|task| !task.is_ready()); // retain tasks that are not ready
 
-            // hlt CPU if no tasks are pending
-            let pending_tasks = self.tasks.len();
-            interrupts::disable();
-            if pending_tasks == 0 {
-                interrupts::enable_and_hlt();
-            } else {
-                interrupts::enable();
-            }
+            // TODO: hlt CPU if no tasks are pending
+            // let pending_tasks = self.tasks.len();
+            // interrupts::disable();
+            // if pending_tasks == 0 {
+            //     interrupts::enable_and_hlt();
+            // } else {
+            //     interrupts::enable();
+            // }
         }
     }
 }

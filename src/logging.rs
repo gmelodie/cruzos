@@ -11,7 +11,7 @@ pub enum Level {
     Error = 0,
     Info = 1,
     Warning = 2,
-    Debug = 3
+    Debug = 3,
 }
 
 // TODO: add info! debug! error! etc.
@@ -26,7 +26,7 @@ macro_rules! log {
     ($level:path, $($tt:tt)*) => (
         if $level <= get_logging_level() {
             $crate::serial_print!("{}\n", format_args!($($tt)*));
-            $crate::print!("{}\n", format_args!($($tt)*));
+            // $crate::print!("{}\n", format_args!($($tt)*));
         }
     );
 }
@@ -41,11 +41,10 @@ macro_rules! logf {
     ($level:path, $($tt:tt)*) => (
         if $level <= get_logging_level() {
             $crate::serial_print!("{}", format_args!($($tt)*));
-            $crate::print!("{}", format_args!($($tt)*));
+            // $crate::print!("{}", format_args!($($tt)*));
         }
     );
 }
-
 
 pub fn set_logging_level(level: Level) {
     *LOG_LEVEL.lock() = level;

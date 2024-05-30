@@ -1,3 +1,4 @@
+use crate::prelude::*;
 use core::result;
 
 pub type Result<'a, T> = result::Result<T, &'a str>;
@@ -17,6 +18,7 @@ impl<T> Locked<T> {
         }
     }
     pub fn lock(&self) -> MutexGuard<T> {
+        // log!(Level::Debug, "locking {}", core::any::type_name::<T>());
         self.inner.lock()
     }
 }

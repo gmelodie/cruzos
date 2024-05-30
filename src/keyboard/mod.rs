@@ -1,15 +1,14 @@
 use crate::{
     interrupts::{PICInterrupt, PICS},
     prelude::*,
-    vga::VGA,
 };
-use futures::stream::{Stream, StreamExt};
+use futures::stream::StreamExt;
 use x86_64::{instructions::port::Port, structures::idt::InterruptStackFrame};
 
 mod buffer;
 mod layout;
 
-use buffer::{sync, PopBufferStream, POP_BUFFER, POP_WAKER, PUSH_BUFFER};
+use buffer::{sync, PopBufferStream, POP_BUFFER, PUSH_BUFFER};
 use layout::{KeyType, Layout, Layoutable};
 
 lazy_static! {

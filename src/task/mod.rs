@@ -2,7 +2,7 @@ use alloc::{boxed::Box, sync::Arc, task::Wake};
 use core::{
     future::Future,
     pin::Pin,
-    task::{Context, Poll, Waker},
+    task::{Context, Poll},
 };
 
 use crate::util::Locked;

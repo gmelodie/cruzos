@@ -8,10 +8,7 @@ use core::{
     pin::Pin,
     task::{Context, Poll},
 };
-use futures::{
-    stream::{Stream, StreamExt},
-    task::AtomicWaker,
-};
+use futures::{stream::Stream, task::AtomicWaker};
 
 pub static POP_WAKER: AtomicWaker = AtomicWaker::new();
 
