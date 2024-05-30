@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 bootloader = { version = "0.9", features = ["map_physical_memory"] } # TODO: change to bootloader_api v0.11
+futures = { version = "0.3.30", default-features = false, features = ["alloc"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 pic8259 = "0.11.0"
 spin = { version = "0.9.8", features = ["fair_mutex"] }

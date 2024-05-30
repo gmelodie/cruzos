@@ -9,7 +9,7 @@ impl Gash {
     pub async fn run(&self) {
         let mut input = String::new();
         loop {
-            print!("root@crash # ");
+            print!("root@cruzos # ");
             scanf(&mut input).await;
             // TODO: run input
             input.clear();

@@ -3,12 +3,13 @@ use crate::{
     prelude::*,
     vga::VGA,
 };
+use futures::stream::{Stream, StreamExt};
 use x86_64::{instructions::port::Port, structures::idt::InterruptStackFrame};
 
 mod buffer;
 mod layout;
 
-use buffer::{sync, POP_BUFFER, PUSH_BUFFER};
+use buffer::{sync, PopBufferStream, POP_BUFFER, POP_WAKER, PUSH_BUFFER};
 use layout::{KeyType, Layout, Layoutable};
 
 lazy_static! {
@@ -105,16 +106,17 @@ pub async fn scanf(string: &mut String) -> usize {
 
     let mut len = 0;
 
-    loop {
-        if let Some(c) = POP_BUFFER.lock().pop() {
-            print!("{c}");
-            if c == '\n' {
-                return len;
-            }
-            string.push(c);
-            len += 1;
+    let mut stream = PopBufferStream::new();
+
+    while let Some(c) = stream.next().await {
+        print!("{c}");
+        if c == '\n' {
+            break;
         }
+        string.push(c);
+        len += 1;
     }
+    len
 }
 
 // fn scancode2ascii(scancode: u8) -> char {

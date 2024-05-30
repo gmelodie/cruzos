@@ -42,6 +42,7 @@ impl SimpleExecutor {
                 let waker = Waker::from(Arc::clone(&task.waker));
                 let mut cx = Context::from_waker(&waker);
                 let _poll_result = task.poll(&mut cx);
+                log!(Level::Debug, "finished polling task {i}");
             }
 
             self.tasks.retain(|task| !task.is_ready()); // retain tasks that are not ready

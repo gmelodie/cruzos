@@ -4,6 +4,17 @@ lazy_static! {
     pub static ref POP_BUFFER: Mutex<PopBuffer> = Mutex::new(PopBuffer::new());
 }
 
+use core::{
+    pin::Pin,
+    task::{Context, Poll},
+};
+use futures::{
+    stream::{Stream, StreamExt},
+    task::AtomicWaker,
+};
+
+pub static POP_WAKER: AtomicWaker = AtomicWaker::new();
+
 const BUFFER_SIZE: usize = 4096; // 4KiB
 
 /// Buffer is a circular queue
@@ -52,6 +63,7 @@ impl PushBuffer {
         self.buf[self.end] = ascii;
         let old_end = self.end;
 
+        POP_WAKER.wake();
         // end goes to beginning of buffer when it reaches the end
         self.end = (old_end + 1) % BUFFER_SIZE;
     }
@@ -72,8 +84,9 @@ impl PushBuffer {
 impl PopBuffer {
     // TODO: result + return error when empty
     /// Pops a character from start of the buffer (returns 0 (\0) if is empty)
-    pub fn pop(&mut self) -> Option<char> {
+    fn pop(&mut self) -> Option<char> {
         if self.is_empty() {
+            // yields because poll_next (below) returns Poll::Pending from this
             return None;
         }
         let old_start = self.start;
@@ -82,5 +95,30 @@ impl PopBuffer {
         self.start = (old_start + 1) % BUFFER_SIZE;
 
         Some(self.buf[old_start])
+    }
+}
+
+pub struct PopBufferStream;
+
+impl PopBufferStream {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Stream for PopBufferStream {
+    type Item = char;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<Self::Item>> {
+        if let Some(c) = POP_BUFFER.lock().pop() {
+            return Poll::Ready(Some(c));
+        }
+        POP_WAKER.register(&cx.waker());
+        match POP_BUFFER.lock().pop() {
+            Some(c) => {
+                POP_WAKER.take();
+                Poll::Ready(Some(c))
+            }
+            None => Poll::Pending,
+        }
     }
 }
