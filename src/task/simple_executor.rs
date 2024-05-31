@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::sync::atomic::Ordering;
 use core::task::Context;
 use core::task::Waker;
 use spin::Mutex;
@@ -32,11 +33,10 @@ impl SimpleExecutor {
             self.is_running.lock();
             // Filter for unblocked tasks and poll them
             // Unblocked tasks were unblocked by the waker
-            log!(Level::Debug, "will filter for blocked");
             for (i, task) in self
                 .tasks
                 .iter_mut()
-                .filter(|t| !t.waker.lock().blocked)
+                .filter(|t| !t.waker.blocked.load(Ordering::SeqCst))
                 .enumerate()
             {
                 log!(Level::Debug, "polling task {i}");
@@ -46,7 +46,7 @@ impl SimpleExecutor {
                 log!(Level::Debug, "finished polling task {i}");
             }
 
-            self.tasks.retain(|task| !task.is_ready()); // retain tasks that are not ready
+            self.tasks.retain(|task| !task.ready.load(Ordering::SeqCst)); // retain tasks that are not ready
 
             // TODO: hlt CPU if no tasks are pending
             // let pending_tasks = self.tasks.len();

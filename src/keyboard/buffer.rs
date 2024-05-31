@@ -57,20 +57,15 @@ pub fn sync(push: &mut PushBuffer, pop: &mut PopBuffer) {
 
 impl PushBuffer {
     pub fn push(&mut self, ascii: char) {
-        log!(Level::Debug, "here1.1");
         if self.is_full() {
             return;
         }
-        log!(Level::Debug, "here1.2");
         // put at end position
         self.buf[self.end] = ascii;
         let old_end = self.end;
-        log!(Level::Debug, "here1.3");
 
         // end goes to beginning of buffer when it reaches the end
         self.end = (old_end + 1) % BUFFER_SIZE;
-
-        log!(Level::Debug, "here1.4");
     }
     /// Pops a character from end of the buffer (returns 0 (\0) if is empty)
     pub fn pop_end(&mut self) -> Option<char> {

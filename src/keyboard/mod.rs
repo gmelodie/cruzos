@@ -59,7 +59,6 @@ impl Keyboard {
 
 /// Handles an interrupt for a keyboard event (should not lock VGA since it will likely deadlock)
 pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
-    log!(Level::Debug, "start keyboard_interrupt");
     // 1. read the pressed caracter into PUSH_BUFFER
     let scancode: u8 = unsafe {
         let mut port = Port::new(0x60);
@@ -73,11 +72,9 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::CapsLock => KEYBOARD.lock().caps_lock(),
         KeyType::Ascii => {
             let ascii = KEYBOARD.lock().to_ascii(scancode);
-            log!(Level::Debug, "here1");
             // acquire lock for buffer
             // put char in buffer
             PUSH_BUFFER.lock().push(ascii);
-            log!(Level::Debug, "here2");
         }
         KeyType::ESC => (),
         KeyType::Ctrl => (),
@@ -88,7 +85,6 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::ArrowRight => (),
         KeyType::Unknown => (), // do nothing
     }
-    log!(Level::Debug, "here3");
     // 2. try to sync PUSH_BUFFER and POP_BUFFER (sometimes we can't cuz POP_BUFFER is locked
     //    somewhere else)
     if let Some(mut pop) = POP_BUFFER.try_lock() {
@@ -99,10 +95,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         PICS.lock()
             .notify_end_of_interrupt(PICInterrupt::Keyboard as u8)
     };
-    log!(Level::Debug, "here4");
     POP_WAKER.wake();
-    log!(Level::Debug, "here5");
-    log!(Level::Debug, "end keyboard_interrupt");
 }
 
 /// Reads one character from the keyboard

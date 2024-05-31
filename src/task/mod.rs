@@ -2,6 +2,7 @@ use alloc::{boxed::Box, sync::Arc, task::Wake};
 use core::{
     future::Future,
     pin::Pin,
+    sync::atomic::{AtomicBool, Ordering},
     task::{Context, Poll},
 };
 
@@ -11,38 +12,32 @@ pub mod simple_executor;
 
 pub struct Task {
     future: Pin<Box<dyn Future<Output = ()>>>,
-    ready: bool,
-    waker: Arc<Locked<TaskWaker>>,
+    ready: AtomicBool,
+    waker: Arc<TaskWaker>,
 }
 
 impl Task {
     pub fn new(future: impl Future<Output = ()> + 'static) -> Self {
         Task {
             future: Box::pin(future),
-            ready: false,
+            ready: AtomicBool::new(false),
             waker: TaskWaker::new(false),
         }
     }
 
     pub fn ready(&mut self) {
-        self.ready = true;
-    }
-
-    pub fn is_ready(&self) -> bool {
-        self.ready
+        self.ready.store(true, Ordering::Relaxed);
     }
 
     pub fn poll(&mut self, cx: &mut Context) -> Poll<()> {
         let poll_result = self.future.as_mut().poll(cx);
         match poll_result {
             Poll::Ready(_) => {
-                self.ready = true;
+                self.ready.store(true, Ordering::Relaxed);
             }
             Poll::Pending => {
-                log!(Level::Debug, "locking and blocking");
                 // reblock task, to be unblocked by Waker
-                self.waker.lock().blocked = true;
-                log!(Level::Debug, "locked and blocked");
+                self.waker.blocked.store(true, Ordering::Relaxed);
             }
         }
         poll_result
@@ -50,23 +45,19 @@ impl Task {
 }
 
 struct TaskWaker {
-    blocked: bool,
+    blocked: AtomicBool,
 }
 
 impl TaskWaker {
-    fn new(blocked: bool) -> Arc<Locked<Self>> {
-        Arc::new(Locked::new(TaskWaker { blocked }))
-    }
-    fn unblock(&mut self) {
-        log!(Level::Debug, "unblock called");
-        self.blocked = false;
+    fn new(blocked: bool) -> Arc<Self> {
+        Arc::new(TaskWaker {
+            blocked: AtomicBool::new(blocked),
+        })
     }
 }
 
-impl Wake for Locked<TaskWaker> {
+impl Wake for TaskWaker {
     fn wake(self: Arc<Self>) {
-        log!(Level::Debug, "wake called");
-        self.lock().unblock();
-        log!(Level::Debug, "unblocked");
+        self.blocked.store(false, Ordering::Relaxed);
     }
 }
