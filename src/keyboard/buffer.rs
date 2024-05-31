@@ -47,8 +47,14 @@ impl Buffer {
 /// Makes the two buffers equal to push[pop.start, push.end]
 pub fn sync(push: &mut PushBuffer, pop: &mut PopBuffer) {
     push.start = pop.start;
+    let old_pop_end = pop.end;
     pop.end = push.end;
-    pop.buf = push.buf.clone();
+
+    for i in old_pop_end..push.end {
+        let idx = (i + BUFFER_SIZE) % BUFFER_SIZE; // need this in case we circled back to start of list
+        pop.buf[i] = push.buf[i];
+    }
+
 }
 
 impl PushBuffer {

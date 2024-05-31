@@ -101,8 +101,6 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
 /// Reads characters from the keyboard buffer into string until \n or is reached. Consumes `\n`.
 /// Returns number of read characters.
 pub async fn scanf(string: &mut String) -> usize {
-    // while POP_BUFFER.lock().is_empty() {} // wait until buffer has chars
-
     let mut len = 0;
 
     let mut stream = PopBufferStream::new();
@@ -117,8 +115,3 @@ pub async fn scanf(string: &mut String) -> usize {
     }
     len
 }
-
-// fn scancode2ascii(scancode: u8) -> char {
-//     let sc2ascii = [ESC'a', 'b'];
-//     'a'
-// }
