@@ -32,6 +32,7 @@ impl SimpleExecutor {
             self.is_running.lock();
             // Filter for unblocked tasks and poll them
             // Unblocked tasks were unblocked by the waker
+            log!(Level::Debug, "will filter for blocked");
             for (i, task) in self
                 .tasks
                 .iter_mut()

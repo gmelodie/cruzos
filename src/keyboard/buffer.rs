@@ -3,14 +3,13 @@ lazy_static! {
     pub static ref PUSH_BUFFER: Mutex<PushBuffer> = Mutex::new(PushBuffer::new());
     pub static ref POP_BUFFER: Mutex<PopBuffer> = Mutex::new(PopBuffer::new());
 }
+pub static POP_WAKER: AtomicWaker = AtomicWaker::new();
 
 use core::{
     pin::Pin,
     task::{Context, Poll},
 };
 use futures::{stream::Stream, task::AtomicWaker};
-
-pub static POP_WAKER: AtomicWaker = AtomicWaker::new();
 
 const BUFFER_SIZE: usize = 4096; // 4KiB
 
@@ -52,23 +51,26 @@ pub fn sync(push: &mut PushBuffer, pop: &mut PopBuffer) {
 
     for i in old_pop_end..push.end {
         let idx = (i + BUFFER_SIZE) % BUFFER_SIZE; // need this in case we circled back to start of list
-        pop.buf[i] = push.buf[i];
+        pop.buf[idx] = push.buf[idx];
     }
-
 }
 
 impl PushBuffer {
     pub fn push(&mut self, ascii: char) {
+        log!(Level::Debug, "here1.1");
         if self.is_full() {
             return;
         }
+        log!(Level::Debug, "here1.2");
         // put at end position
         self.buf[self.end] = ascii;
         let old_end = self.end;
+        log!(Level::Debug, "here1.3");
 
-        POP_WAKER.wake();
         // end goes to beginning of buffer when it reaches the end
         self.end = (old_end + 1) % BUFFER_SIZE;
+
+        log!(Level::Debug, "here1.4");
     }
     /// Pops a character from end of the buffer (returns 0 (\0) if is empty)
     pub fn pop_end(&mut self) -> Option<char> {
@@ -115,13 +117,18 @@ impl Stream for PopBufferStream {
         if let Some(c) = POP_BUFFER.lock().pop() {
             return Poll::Ready(Some(c));
         }
+        log!(Level::Debug, "registering waker");
         POP_WAKER.register(&cx.waker());
         match POP_BUFFER.lock().pop() {
             Some(c) => {
+                log!(Level::Debug, "end registering waker (ready)");
                 POP_WAKER.take();
                 Poll::Ready(Some(c))
             }
-            None => Poll::Pending,
+            None => {
+                log!(Level::Debug, "end registering waker (pending)");
+                Poll::Pending
+            }
         }
     }
 }

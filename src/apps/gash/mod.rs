@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{keyboard::getc, prelude::*};
 
 pub struct Gash {}
 
@@ -10,7 +10,19 @@ impl Gash {
         let mut input = String::new();
         loop {
             print!("root@cruzos # ");
-            scanf(&mut input).await;
+            while let c = getc().await {
+                if c == '\n' {
+                    break;
+                }
+                if c == 8 as char {
+                    stdout().backspace();
+                    continue;
+                }
+                input.push(c);
+                print!("{c}");
+            }
+
+            // scanf(&mut input).await;
             // TODO: run input
             input.clear();
         }

@@ -1,3 +1,4 @@
+use crate::keyboard::buffer::POP_WAKER;
 use crate::{
     interrupts::{PICInterrupt, PICS},
     prelude::*,
@@ -44,6 +45,7 @@ impl Keyboard {
 
     // see if we need to uppercase letter
     fn to_ascii(&self, scancode: u8) -> char {
+        log!(Level::Debug, "to_ascii called with scancode {scancode}");
         let ascii = self.layout.to_ascii(scancode);
 
         match (self.caps_lock_on, self.shift_pressed) {
@@ -57,6 +59,7 @@ impl Keyboard {
 
 /// Handles an interrupt for a keyboard event (should not lock VGA since it will likely deadlock)
 pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFrame) {
+    log!(Level::Debug, "start keyboard_interrupt");
     // 1. read the pressed caracter into PUSH_BUFFER
     let scancode: u8 = unsafe {
         let mut port = Port::new(0x60);
@@ -68,14 +71,13 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::Shift => KEYBOARD.lock().shift(),
         KeyType::ShiftReleased => KEYBOARD.lock().shift_released(),
         KeyType::CapsLock => KEYBOARD.lock().caps_lock(),
-        KeyType::Letter => {
+        KeyType::Ascii => {
             let ascii = KEYBOARD.lock().to_ascii(scancode);
+            log!(Level::Debug, "here1");
             // acquire lock for buffer
             // put char in buffer
             PUSH_BUFFER.lock().push(ascii);
-        }
-        KeyType::Backspace => {
-            PUSH_BUFFER.lock().pop_end();
+            log!(Level::Debug, "here2");
         }
         KeyType::ESC => (),
         KeyType::Ctrl => (),
@@ -86,6 +88,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         KeyType::ArrowRight => (),
         KeyType::Unknown => (), // do nothing
     }
+    log!(Level::Debug, "here3");
     // 2. try to sync PUSH_BUFFER and POP_BUFFER (sometimes we can't cuz POP_BUFFER is locked
     //    somewhere else)
     if let Some(mut pop) = POP_BUFFER.try_lock() {
@@ -96,6 +99,22 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
         PICS.lock()
             .notify_end_of_interrupt(PICInterrupt::Keyboard as u8)
     };
+    log!(Level::Debug, "here4");
+    POP_WAKER.wake();
+    log!(Level::Debug, "here5");
+    log!(Level::Debug, "end keyboard_interrupt");
+}
+
+/// Reads one character from the keyboard
+pub async fn getc() -> char {
+    let mut stream = PopBufferStream::new();
+
+    loop {
+        match stream.next().await {
+            Some(c) => return c,
+            None => continue,
+        }
+    }
 }
 
 /// Reads characters from the keyboard buffer into string until \n or is reached. Consumes `\n`.
@@ -106,6 +125,10 @@ pub async fn scanf(string: &mut String) -> usize {
     let mut stream = PopBufferStream::new();
 
     while let Some(c) = stream.next().await {
+        if c == 8 as char && len != 0 {
+            // 8 is ascii for backspace
+            stdout().backspace();
+        }
         print!("{c}");
         if c == '\n' {
             break;

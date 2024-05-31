@@ -5,7 +5,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use crate::util::Locked;
+use crate::{prelude::*, util::Locked};
 
 pub mod simple_executor;
 
@@ -39,8 +39,10 @@ impl Task {
                 self.ready = true;
             }
             Poll::Pending => {
+                log!(Level::Debug, "locking and blocking");
                 // reblock task, to be unblocked by Waker
                 self.waker.lock().blocked = true;
+                log!(Level::Debug, "locked and blocked");
             }
         }
         poll_result
@@ -56,12 +58,15 @@ impl TaskWaker {
         Arc::new(Locked::new(TaskWaker { blocked }))
     }
     fn unblock(&mut self) {
+        log!(Level::Debug, "unblock called");
         self.blocked = false;
     }
 }
 
 impl Wake for Locked<TaskWaker> {
     fn wake(self: Arc<Self>) {
+        log!(Level::Debug, "wake called");
         self.lock().unblock();
+        log!(Level::Debug, "unblocked");
     }
 }

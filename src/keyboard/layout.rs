@@ -5,7 +5,6 @@ static UNDEFINED_KEY: char = '?'; // this is a block in code page 437
 #[derive(Debug, Clone, Copy)]
 pub enum KeyType {
     ESC,
-    Backspace,
     Ctrl,
     Shift,
     ShiftReleased,
@@ -15,8 +14,7 @@ pub enum KeyType {
     ArrowDown,
     ArrowLeft,
     ArrowRight,
-    // TODO: backspace
-    Letter,
+    Ascii,
     Unknown,
 }
 
@@ -48,19 +46,20 @@ fn moonlander_to_keytype(scancode: u8) -> KeyType {
         Level::Debug,
         "moonlander_to_keytype called with scancode {scancode}"
     );
-    let letters = [
-        02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38, 50,
-        49, 24, 25, 16, 19, 31, 20, 22, 47, 17, 45, 21, 44, 57, // space
+    let ascii = [
+        02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 14, // 14 == backspace
+        30, 48, 46, 32, 18, 33, 34, 35, 23, 36, 37, 38, 50, 49, 24, 25, 16, 19, 31, 20, 22, 47, 17,
+        45, 21, 44, 57, // space
         28, // newline
     ];
 
-    if letters.contains(&scancode) {
-        return KeyType::Letter; // also includes space and newline
+    if ascii.contains(&scancode) {
+        return KeyType::Ascii; // also includes space and newline
     }
 
     match scancode {
         1 => KeyType::ESC,
-        14 => KeyType::Backspace,
+        // 14 => KeyType::Backspace, (handled above)
         29 => KeyType::Ctrl,
         42 => KeyType::Shift,
         56 => KeyType::Alt,
@@ -90,6 +89,7 @@ fn moonlander_to_ascii(scancode: u8) -> char {
         09 => '8',
         10 => '9',
         11 => '0',
+        14 => 8 as char, // backspace (backspace is ascii 8)
         30 => 'a',
         48 => 'b',
         46 => 'c',

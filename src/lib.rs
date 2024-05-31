@@ -30,11 +30,15 @@ pub mod util;
 pub mod vga;
 
 pub fn init(boot_info: &BootInfo) {
+    x86_64::instructions::interrupts::disable();
+
     set_logging_level(Level::Info);
     interrupts::init_idt();
     gdt::init_gdt();
     memory::init(boot_info);
     allocator::init(&boot_info.memory_map);
+
+    x86_64::instructions::interrupts::enable();
 }
 
 /// Panic handler for when not testing (called in src/main.rs)
