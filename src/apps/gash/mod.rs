@@ -12,7 +12,9 @@ impl Gash {
             print!("root@cruzos # ");
             while let c = getc().await {
                 if c == 8 as char {
-                    stdout().backspace();
+                    if let Some(_) = input.pop() {
+                        stdout().backspace();
+                    }
                     continue;
                 }
 
