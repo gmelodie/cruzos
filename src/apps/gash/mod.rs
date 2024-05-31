@@ -11,15 +11,16 @@ impl Gash {
         loop {
             print!("root@cruzos # ");
             while let c = getc().await {
-                if c == '\n' {
-                    break;
-                }
                 if c == 8 as char {
                     stdout().backspace();
                     continue;
                 }
-                input.push(c);
+
                 print!("{c}");
+                if c == '\n' {
+                    break;
+                }
+                input.push(c);
             }
 
             // scanf(&mut input).await;
