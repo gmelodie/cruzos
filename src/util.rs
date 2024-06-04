@@ -1,7 +1,11 @@
 use crate::prelude::*;
-use core::result;
 
-pub type Result<'a, T> = result::Result<T, String>;
+pub type Result<T> = result::Result<T, Box<dyn Error>>;
+
+#[macro_export]
+macro_rules! err {
+    ($($tt:tt)*) => { Err(Box::<dyn Error>::from(format!($($tt)*))) }
+}
 
 // TODO: error trait
 

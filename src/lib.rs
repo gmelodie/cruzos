@@ -6,6 +6,7 @@
 #![test_runner(run_tests)]
 #![reexport_test_harness_main = "test_main"]
 #![feature(const_mut_refs)] // for linked_list_allocator (using mut ref in const function)
+#![feature(error_in_core)] // for core::error::Error (used in util::Result)
 
 use core::panic::PanicInfo;
 

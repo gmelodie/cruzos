@@ -9,14 +9,11 @@ fn echo(args: Vec<&str>) -> Result<()> {
     Ok(())
 }
 
-fn parse_cmd(input: &str) -> Result<()> {
+fn parse_cmd(input: &str) -> (&str, Vec<&str>) {
     // TODO: trim input
     let mut iter = input.split_ascii_whitespace();
     let (cmd, args): (&str, Vec<&str>) = (iter.next().unwrap_or(""), iter.collect());
-    match cmd {
-        "echo" => echo(args),
-        _ => return Err(format!("command not found: {cmd}")),
-    }
+    (cmd, args)
 }
 
 impl Gash {
@@ -44,10 +41,13 @@ impl Gash {
             }
 
             // TODO: run input
-            match parse_cmd(input.as_str()) {
-                Err(msg) => println!("gash: {msg}"),
-                Ok(_) => (),
-            };
+            let (cmd, args) = parse_cmd(input.as_str());
+            if let Err(msg) = match cmd {
+                "echo" => echo(args),
+                _ => err!("command not found: {cmd}"),
+            } {
+                println!("gash: {msg}");
+            }
             input.clear();
         }
     }
