@@ -1,6 +1,23 @@
+use alloc::{borrow::ToOwned, string::ToString};
+
 use crate::{keyboard::getc, prelude::*};
 
 pub struct Gash {}
+
+fn echo(args: Vec<&str>) -> Result<()> {
+    println!("{}", args.join(" "));
+    Ok(())
+}
+
+fn parse_cmd(input: &str) -> Result<()> {
+    // TODO: trim input
+    let mut iter = input.split_ascii_whitespace();
+    let (cmd, args): (&str, Vec<&str>) = (iter.next().unwrap_or(""), iter.collect());
+    match cmd {
+        "echo" => echo(args),
+        _ => return Err(format!("command not found: {cmd}")),
+    }
+}
 
 impl Gash {
     pub fn new() -> Self {
@@ -11,6 +28,7 @@ impl Gash {
         loop {
             print!("root@cruzos # ");
             while let c = getc().await {
+                // Handle backspace
                 if c == 8 as char {
                     if let Some(_) = input.pop() {
                         stdout().backspace();
@@ -25,8 +43,11 @@ impl Gash {
                 input.push(c);
             }
 
-            // scanf(&mut input).await;
             // TODO: run input
+            match parse_cmd(input.as_str()) {
+                Err(msg) => println!("gash: {msg}"),
+                Ok(_) => (),
+            };
             input.clear();
         }
     }
