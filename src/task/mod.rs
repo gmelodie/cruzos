@@ -2,16 +2,19 @@ use alloc::{boxed::Box, sync::Arc, task::Wake};
 use core::{
     future::Future,
     pin::Pin,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
     task::{Context, Poll},
 };
 
-use crate::{prelude::*, util::Locked};
+use crate::prelude::*;
 
 pub mod simple_executor;
 
+pub static PID: AtomicUsize = AtomicUsize::new(0);
+
 pub struct Task {
     future: Pin<Box<dyn Future<Output = ()>>>,
+    id: usize,
     ready: AtomicBool,
     waker: Arc<TaskWaker>,
 }
@@ -20,6 +23,7 @@ impl Task {
     pub fn new(future: impl Future<Output = ()> + 'static) -> Self {
         Task {
             future: Box::pin(future),
+            id: PID.fetch_add(1, Ordering::SeqCst),
             ready: AtomicBool::new(false),
             waker: TaskWaker::new(false),
         }

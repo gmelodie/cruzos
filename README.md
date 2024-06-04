@@ -13,6 +13,9 @@ rustup component add llvm-tools-preview
 - **Bump Allocator:** grows in the same direction once all allocated blocks are deallocated, reset memory.
 - **Linked List Allocator:** freed blocks with at least 16 bytes are put in a linked list. Reutilizes suitable blocks. (obs: if you deallocate 8 bytes, those are lots until all references are deallocated and memory is reset like in bump allocator)
 
+## Processes
+There is a naïve task scheduler at `/src/task/simple_executor.rs`. Tasks can be spawned after executor starts `run`ing.
+
 ## TODOs
 - DMA over PIO (use this to implement keyboard buffer)
 - UEFI over BIOS

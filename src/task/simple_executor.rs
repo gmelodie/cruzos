@@ -1,41 +1,53 @@
+use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 use core::sync::atomic::Ordering;
 use core::task::Context;
 use core::task::Waker;
 use spin::Mutex;
-use x86_64::instructions::interrupts;
+// use x86_64::instructions::interrupts;
 
 use super::Task;
 
 use crate::prelude::*;
 
 pub struct SimpleExecutor {
-    tasks: Vec<Task>,
-    is_running: Mutex<()>,
+    tasks: BTreeMap<usize, Task>,
+    new_tasks: BTreeMap<usize, Task>,
 }
 
 impl SimpleExecutor {
-    pub fn new(capacity: usize) -> Self {
+    pub fn new(_capacity: usize) -> Self {
+        // TODO: set capacity
         SimpleExecutor {
-            tasks: Vec::with_capacity(capacity),
-            is_running: Mutex::new(()),
+            tasks: BTreeMap::new(),
+            new_tasks: BTreeMap::new(),
         }
     }
 
+    /// Spawns a new task, can be called after executor started running
     pub fn spawn(&mut self, task: Task) {
-        self.is_running.lock();
-        self.tasks.push(task);
+        self.new_tasks.insert(task.id, task);
+    }
+
+    /// Adds new_tasks to tasks and clears new_tasks
+    fn update_tasks(&mut self) {
+        while let Some((pid, task)) = self.new_tasks.pop_last() {
+            self.tasks.insert(pid, task);
+        }
     }
 
     pub fn run(&mut self) -> ! {
         loop {
-            self.is_running.lock();
+            // Add new_tasks to tasks and clear new_tasks
+            self.update_tasks();
+
+            assert!(self.new_tasks.is_empty());
+
             // Filter for unblocked tasks and poll them
             // Unblocked tasks were unblocked by the waker
             for (i, task) in self
                 .tasks
-                .iter_mut()
+                .values_mut()
                 .filter(|t| !t.waker.blocked.load(Ordering::SeqCst))
                 .enumerate()
             {
@@ -46,7 +58,8 @@ impl SimpleExecutor {
                 log!(Level::Debug, "finished polling task {i}");
             }
 
-            self.tasks.retain(|task| !task.ready.load(Ordering::SeqCst)); // retain tasks that are not ready
+            self.tasks
+                .retain(|_pid, task| !task.ready.load(Ordering::SeqCst)); // retain tasks that are not ready
 
             // TODO: hlt CPU if no tasks are pending
             // let pending_tasks = self.tasks.len();
