@@ -4,6 +4,7 @@
 #![test_runner(cruzos::run_tests)]
 #![reexport_test_harness_main = "test_main"]
 
+use alloc::string::ToString;
 use bootloader::{entry_point, BootInfo};
 
 extern crate alloc;
@@ -65,7 +66,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     let mut executor = SimpleExecutor::new(50);
     // let future1 = example_task(42);
     // let future2 = example_task(43);
-    executor.spawn(Task::new(async move {
+    executor.spawn(Task::new("Gash", async move {
         shell.clone().lock().run().await;
     }));
     // executor.spawn(Task::new(future1));

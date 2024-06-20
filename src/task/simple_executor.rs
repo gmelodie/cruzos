@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
 use core::task::Context;
 use core::task::Waker;
-use spin::Mutex;
+// use spin::Mutex;
 // use x86_64::instructions::interrupts;
 
 use super::Task;
@@ -70,5 +70,13 @@ impl SimpleExecutor {
             //     interrupts::enable();
             // }
         }
+    }
+
+    pub fn task_names(&self) -> Vec<String> {
+        let mut names = Vec::<String>::new();
+        for t in self.tasks.values() {
+            names.push(t.name.clone());
+        }
+        names
     }
 }

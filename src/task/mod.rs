@@ -1,4 +1,4 @@
-use alloc::{boxed::Box, sync::Arc, task::Wake};
+use alloc::{boxed::Box, string::ToString, sync::Arc, task::Wake};
 use core::{
     future::Future,
     pin::Pin,
@@ -13,6 +13,7 @@ pub mod simple_executor;
 pub static PID: AtomicUsize = AtomicUsize::new(0);
 
 pub struct Task {
+    name: String,
     future: Pin<Box<dyn Future<Output = ()>>>,
     id: usize,
     ready: AtomicBool,
@@ -20,8 +21,9 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(future: impl Future<Output = ()> + 'static) -> Self {
+    pub fn new(name: &str, future: impl Future<Output = ()> + 'static) -> Self {
         Task {
+            name: name.to_string(),
             future: Box::pin(future),
             id: PID.fetch_add(1, Ordering::SeqCst),
             ready: AtomicBool::new(false),

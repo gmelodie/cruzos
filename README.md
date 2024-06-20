@@ -17,6 +17,11 @@ rustup component add llvm-tools-preview
 There is a naïve task scheduler at `/src/task/simple_executor.rs`. Tasks can be spawned after executor starts `run`ing.
 
 ## TODOs
+- syscalls
+    - pkill
+    - ps
+    - shutdown
+
 - DMA over PIO (use this to implement keyboard buffer)
 - UEFI over BIOS
 - USB

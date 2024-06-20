@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, string::ToString};
+// use alloc::{borrow::ToOwned, string::ToString};
 
 use crate::{keyboard::getc, prelude::*};
 
@@ -9,9 +9,14 @@ fn echo(args: Vec<&str>) -> Result<()> {
     Ok(())
 }
 
+fn ps(_args: Vec<&str>) -> Result<()> {
+    // TODO: add flags
+    // format!("{}", executor.task_names().join("\n"));
+    Ok(())
+}
+
 fn parse_cmd(input: &str) -> (&str, Vec<&str>) {
-    // TODO: trim input
-    let mut iter = input.split_ascii_whitespace();
+    let mut iter = input.trim().split_ascii_whitespace();
     let (cmd, args): (&str, Vec<&str>) = (iter.next().unwrap_or(""), iter.collect());
     (cmd, args)
 }
@@ -40,10 +45,10 @@ impl Gash {
                 input.push(c);
             }
 
-            // TODO: run input
             let (cmd, args) = parse_cmd(input.as_str());
             if let Err(msg) = match cmd {
                 "echo" => echo(args),
+                "ps" => ps(args),
                 _ => err!("command not found: {cmd}"),
             } {
                 println!("gash: {msg}");
