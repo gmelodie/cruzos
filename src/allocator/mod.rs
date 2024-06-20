@@ -1,5 +1,7 @@
 use alloc::alloc::Layout;
 use bootloader::bootinfo::MemoryMap;
+use spin::mutex::Mutex;
+use x86_64::structures::paging::frame;
 use x86_64::structures::paging::{page_table::PageTableFlags, Page};
 use x86_64::VirtAddr;
 
@@ -18,9 +20,19 @@ pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 pub const HEAP_END: usize = HEAP_START + HEAP_SIZE;
 
+pub const USER_CODE_START: usize = 0x_5555_5555_0000;
+pub const USER_CODE_SIZE: usize = 4 * 1024; // 4 KiB for user code segments
+pub const USER_CODE_END: usize = USER_CODE_START + USER_CODE_SIZE;
+
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new(HEAP_START, HEAP_END));
 // static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+
+static USER_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new(USER_CODE_START, USER_CODE_END));
+
+lazy_static! {
+    pub static ref FRAME_ALLOCATOR: Mutex<memory::FrameAllocator> = Mutex::new(unsafe {memory::FrameAllocator::new(None)});
+}
 
 /// Ensures that start_addr is correctly aligned by layout.align().
 /// As almost all of rust dynamic types are base 2 aligned, this will rarely be needed.
@@ -40,9 +52,11 @@ pub fn align_up(start_addr: usize, layout: &Layout) -> usize {
 }
 
 /// Maps all the heap virtual memory locations to usable physical memory frames.
-pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
+pub fn init(memory_map: &'static MemoryMap) {
     logf!(Level::Info, "Mapping heap...");
-    let mut frame_allocator = unsafe { memory::FrameAllocator::new(memory_map) };
+
+    *FRAME_ALLOCATOR.lock() = unsafe { memory::FrameAllocator::new(Some(memory_map)) };
+
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
 
     let heap_start = VirtAddr::new(HEAP_START as u64);
@@ -51,9 +65,31 @@ pub fn init<'init_life>(memory_map: &'init_life MemoryMap) {
     let heap_end_page = Page::containing_address(heap_end);
 
     for page in Page::range_inclusive(heap_start_page, heap_end_page) {
-        memory::map_virt(page, flags, &mut frame_allocator);
+        memory::map_virt(page, flags);
     }
+
+    // init_user_code();
+
     log!(Level::Info, "OK");
+}
+
+
+// TODO: pass in user code to be written already
+// TODO: fn free_user_code() to unmap (do we need that? maybe we need the memory to stay allocated?)
+// TODO: use USER_CODE_START as offset to make virtual memory magic (for user process it looks like zero)
+/// Maps the user_code virtual memory locations to usable physical memory frames.
+/// Obs: Dangerous! No memory randomization
+fn init_user_code() {
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+
+    let user_code_start = VirtAddr::new(USER_CODE_START as u64);
+    let user_code_start_page = Page::containing_address(user_code_start);
+    let user_code_end = user_code_start + USER_CODE_SIZE as u64 - 1;
+    let user_code_end_page = Page::containing_address(user_code_end);
+
+    for page in Page::range_inclusive(user_code_start_page, user_code_end_page) {
+        memory::map_virt(page, flags);
+    }
 }
 
 #[cfg(test)]

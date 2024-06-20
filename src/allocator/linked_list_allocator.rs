@@ -2,7 +2,7 @@ use alloc::alloc::{GlobalAlloc, Layout};
 use core::mem;
 
 use crate::{
-    allocator::{align_up, HEAP_END, HEAP_START},
+    allocator::align_up,
     log,
     prelude::*,
 };
@@ -53,14 +53,18 @@ impl ReusableSpace {
 pub struct LinkedListAllocator {
     alloc_refs: usize,
     alloc_start: usize,
+    base: usize,
+    bounds: usize,
     root_reusable: ReusableSpace,
 }
 
 impl LinkedListAllocator {
-    pub const fn new() -> Self {
+    pub const fn new(start: usize, end: usize) -> Self {
         LinkedListAllocator {
             alloc_refs: 0,
-            alloc_start: HEAP_START,
+            alloc_start: start,
+            base: start,
+            bounds: end,
             root_reusable: ReusableSpace::new(0), // root is always a dummy value
         }
     }
@@ -117,7 +121,7 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
 
                 // then we check if there's enough space after aligning
                 let new_alloc_end = aligned_start_addr + layout.size();
-                if new_alloc_end > HEAP_END {
+                if new_alloc_end > self.lock().bounds {
                     panic!("Not enough space on heap. New alloc end is past actual heap end.");
                 }
 
@@ -162,7 +166,8 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
 
         if self.lock().alloc_refs == 0 {
             self.lock().alloc_refs = 0;
-            self.lock().alloc_start = HEAP_START;
+            let base = self.lock().base;
+            self.lock().alloc_start = base;
             // reset reusable space list
             self.lock().root_reusable.next = None;
         }

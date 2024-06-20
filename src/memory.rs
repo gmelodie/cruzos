@@ -84,20 +84,20 @@ unsafe fn frame_to_page_table(frame: PhysFrame) -> &'static mut PageTable {
     page_table
 }
 
-pub struct FrameAllocator<'frame_life> {
-    memory_map: &'frame_life MemoryMap,
+pub struct FrameAllocator {
+    memory_map: Option<&'static MemoryMap>,
     next: usize,
 }
 
-impl<'frame_life> FrameAllocator<'frame_life> {
-    pub unsafe fn new(memory_map: &'frame_life MemoryMap) -> Self {
+impl FrameAllocator {
+    pub unsafe fn new(memory_map: Option<&'static MemoryMap>) -> Self {
         FrameAllocator {
             memory_map,
             next: 0,
         }
     }
-    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> + 'frame_life {
-        let regions = self.memory_map.iter();
+    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> + '_ {
+        let regions = self.memory_map.unwrap().iter();
         let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
         let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
         let frame_addresses = addr_ranges.flat_map(|r| r.step_by(PAGE_SIZE));
@@ -114,7 +114,10 @@ impl<'frame_life> FrameAllocator<'frame_life> {
 /// Maps a page (in virtual memory space) to a usable frame (in physical memory space).
 /// Frame to be mapped to page is any usable frame we can find.
 /// We use allocator if we need to create new pages.
-pub fn map_virt(page: Page, flags: PageTableFlags, frame_allocator: &mut FrameAllocator) {
+pub fn map_virt(page: Page, flags: PageTableFlags) {
+
+    let frame_allocator = &mut *FRAME_ALLOCATOR.lock();
+
     let frame = match frame_allocator.allocate_frame() {
         Some(frame) => frame,
         None => panic!("Could not allocate frame"),

@@ -31,7 +31,7 @@ pub mod userspace;
 pub mod util;
 pub mod vga;
 
-pub fn init(boot_info: &BootInfo) {
+pub fn init(boot_info: &'static BootInfo) {
     x86_64::instructions::interrupts::disable();
 
     set_logging_level(Level::Info);

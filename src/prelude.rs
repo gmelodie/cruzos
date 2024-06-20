@@ -1,4 +1,5 @@
 pub use crate::err;
+pub use crate::allocator::FRAME_ALLOCATOR;
 pub use crate::keyboard::scanf;
 pub use crate::logging::{get_logging_level, set_logging_level, Level};
 pub use crate::vga::stdout;
