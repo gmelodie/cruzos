@@ -15,6 +15,7 @@ use alloc::sync::Arc;
 use cruzos::apps::gash::Gash;
 use cruzos::task::simple_executor::SimpleExecutor;
 use cruzos::task::Task;
+use cruzos::userspace;
 
 use core::panic::PanicInfo;
 
@@ -59,6 +60,9 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
     log!(Level::Info, "\nCruzOS Running!");
+
+    // run userspace code
+    userspace::to_user_mode();
 
     let shell = Arc::new(Mutex::new(Gash::new()));
 
