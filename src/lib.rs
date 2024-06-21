@@ -7,6 +7,8 @@
 #![reexport_test_harness_main = "test_main"]
 #![feature(const_mut_refs)] // for linked_list_allocator (using mut ref in const function)
 #![feature(error_in_core)] // for core::error::Error (used in util::Result)
+#![feature(naked_functions)] // for the naked timer interrupt function handler
+#![feature(asm_sym)] // enables the sym operands in assembly blocks, used to take the address of symbols
 
 use core::panic::PanicInfo;
 
@@ -25,6 +27,7 @@ pub mod keyboard;
 pub mod logging;
 pub mod memory;
 pub mod prelude;
+pub mod process;
 pub mod serial;
 pub mod task;
 pub mod userspace;

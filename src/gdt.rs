@@ -14,10 +14,17 @@ use lazy_static::lazy_static;
 use crate::prelude::*;
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
+pub const PAGE_FAULT_IST_INDEX: u16 = 0;
+pub const GENERAL_PROTECTION_FAULT_IST_INDEX: u16 = 0;
+
+pub const TIMER_INTERRUPT_INDEX: u16 = 1;
 
 lazy_static! {
-    pub static ref TSS: TaskStateSegment = {
+    pub static ref TSS: Mutex<TaskStateSegment> = {
         let mut tss = TaskStateSegment::new();
+
+
+        // stack for Double/Page/General Protection Faults
         tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize] = {
             const STACK_SIZE: usize = 4096 * 5;
             static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
@@ -26,8 +33,20 @@ lazy_static! {
             let stack_end = stack_start + STACK_SIZE as u64;
             stack_end
         };
-        tss
+
+
+        // stack for Timer Interrupt (context switching)
+        tss.interrupt_stack_table[TIMER_INTERRUPT_INDEX as usize] = tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize];
+
+
+        Mutex::new(tss)
     };
+}
+
+/// Returns a reference to the TSS
+unsafe fn tss_ref() -> &'static TaskStateSegment {
+    let tss_ptr = &*TSS.lock() as *const TaskStateSegment;
+    &*tss_ptr
 }
 
 lazy_static! {
@@ -36,7 +55,7 @@ lazy_static! {
         // this append order is important, kernel_code_segment must come before tss_segment
         let code_selector = gdt.append(Descriptor::kernel_code_segment());
         let data_selector = gdt.append(Descriptor::kernel_data_segment());
-        let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
+        let tss_selector = gdt.append(Descriptor::tss_segment(unsafe {tss_ref()}));
         let user_code_selector = gdt.append(Descriptor::user_code_segment());
         let user_data_selector = gdt.append(Descriptor::user_data_segment());
         (
