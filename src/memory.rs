@@ -115,7 +115,6 @@ impl FrameAllocator {
 /// Frame to be mapped to page is any usable frame we can find.
 /// We use allocator if we need to create new pages.
 pub fn map_virt(page: Page, flags: PageTableFlags) {
-
     let frame_allocator = &mut *FRAME_ALLOCATOR.lock();
 
     let frame = match frame_allocator.allocate_frame() {
@@ -140,19 +139,22 @@ pub fn unmap_virt(page: Page) {
 
     let l3_entry = &l4[page.p4_index()];
     if l3_entry.is_unused() {
-        panic!("Cannot unmap: page already unmapped");
+        log!(Level::Warning, "Cannot unmap: page already unmapped");
+        return;
     }
     let l3 = unsafe { frame_to_page_table(l3_entry.frame().unwrap()) };
 
     let l2_entry = &l3[page.p3_index()];
     if l2_entry.is_unused() {
-        panic!("Cannot unmap: page already unmapped");
+        log!(Level::Warning, "Cannot unmap: page already unmapped");
+        return;
     }
     let l2 = unsafe { frame_to_page_table(l2_entry.frame().unwrap()) };
 
     let l1_entry = &l2[page.p2_index()];
     if l1_entry.is_unused() {
-        panic!("Cannot unmap: page already unmapped");
+        log!(Level::Warning, "Cannot unmap: page already unmapped");
+        return;
     }
     let l1 = unsafe { frame_to_page_table(l1_entry.frame().unwrap()) };
 

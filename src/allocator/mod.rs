@@ -21,17 +21,20 @@ pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
 pub const HEAP_END: usize = HEAP_START + HEAP_SIZE;
 
 pub const USER_CODE_START: usize = 0x_5555_5555_0000;
-pub const USER_CODE_SIZE: usize = 4 * 1024; // 4 KiB for user code segments
-pub const USER_CODE_END: usize = USER_CODE_START + USER_CODE_SIZE;
+pub const USER_CODE_MAX_SIZE: usize = 4 * 1024; // 4 KiB for user code segments
+pub const USER_CODE_MAX_END: usize = USER_CODE_START + USER_CODE_MAX_SIZE;
 
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new(HEAP_START, HEAP_END));
+static ALLOCATOR: Locked<LinkedListAllocator> =
+    Locked::new(LinkedListAllocator::new(HEAP_START, HEAP_END));
 // static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
 
-static USER_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new(USER_CODE_START, USER_CODE_END));
+static USER_ALLOCATOR: Locked<LinkedListAllocator> =
+    Locked::new(LinkedListAllocator::new(USER_CODE_START, USER_CODE_MAX_END));
 
 lazy_static! {
-    pub static ref FRAME_ALLOCATOR: Mutex<memory::FrameAllocator> = Mutex::new(unsafe {memory::FrameAllocator::new(None)});
+    pub static ref FRAME_ALLOCATOR: Mutex<memory::FrameAllocator> =
+        Mutex::new(unsafe { memory::FrameAllocator::new(None) });
 }
 
 /// Ensures that start_addr is correctly aligned by layout.align().
@@ -68,27 +71,39 @@ pub fn init(memory_map: &'static MemoryMap) {
         memory::map_virt(page, flags);
     }
 
-    // init_user_code();
+    // alloc_user_code();
 
     log!(Level::Info, "OK");
 }
 
-
 // TODO: pass in user code to be written already
-// TODO: fn free_user_code() to unmap (do we need that? maybe we need the memory to stay allocated?)
 // TODO: use USER_CODE_START as offset to make virtual memory magic (for user process it looks like zero)
 /// Maps the user_code virtual memory locations to usable physical memory frames.
 /// Obs: Dangerous! No memory randomization
-fn init_user_code() {
-    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+fn alloc_user_code(size: usize) {
+    assert!(size <= USER_CODE_MAX_SIZE);
+
+    let flags =
+        PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
 
     let user_code_start = VirtAddr::new(USER_CODE_START as u64);
     let user_code_start_page = Page::containing_address(user_code_start);
-    let user_code_end = user_code_start + USER_CODE_SIZE as u64 - 1;
+    let user_code_end = user_code_start + size as u64 - 1;
     let user_code_end_page = Page::containing_address(user_code_end);
 
     for page in Page::range_inclusive(user_code_start_page, user_code_end_page) {
         memory::map_virt(page, flags);
+    }
+}
+
+fn free_user_code() {
+    let user_code_start = VirtAddr::new(USER_CODE_START as u64);
+    let user_code_start_page = Page::containing_address(user_code_start);
+    let user_code_end = user_code_start + USER_CODE_MAX_SIZE as u64 - 1;
+    let user_code_end_page = Page::containing_address(user_code_end);
+
+    for page in Page::range_inclusive(user_code_start_page, user_code_end_page) {
+        memory::unmap_virt(page);
     }
 }
 
