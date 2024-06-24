@@ -137,7 +137,6 @@ pub const INTERRUPT_CONTEXT_SIZE: usize = 20 * 8;
 extern "C" fn timer_interrupt(context_addr: usize) -> usize {
     // get stack address of next thread to be run
     let next_stack = process::schedule_next(context_addr);
-    log!(Level::Info, "next stack is {:x}", next_stack);
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(PICInterrupt::Timer as u8)

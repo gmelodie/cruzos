@@ -13,10 +13,15 @@ rustup component add llvm-tools-preview
 - **Bump Allocator:** grows in the same direction once all allocated blocks are deallocated, reset memory.
 - **Linked List Allocator:** freed blocks with at least 16 bytes are put in a linked list. Reutilizes suitable blocks. (obs: if you deallocate 8 bytes, those are lots until all references are deallocated and memory is reset like in bump allocator)
 
+## Async
+There is a naïve task scheduler at `/src/task/simple_executor.rs`. Tasks can be spawned after executor starts `run`ing. Cooperative Multitasking.
+
 ## Processes
-There is a naïve task scheduler at `/src/task/simple_executor.rs`. Tasks can be spawned after executor starts `run`ing.
+Initial idea of processes including context switching and preemptive multitasking achieved due to [bendudson's awesome tutorial](https://github.com/bendudson/EuraliOS/blob/main/doc/journal/01-interrupts-processes.org).
+
 
 ## TODOs
+- fix page fault when keyboard interrupt happens
 - syscalls
     - pkill
     - ps
