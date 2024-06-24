@@ -26,28 +26,37 @@ lazy_static! {
 
         // reserved interrupts
         idt.breakpoint.set_handler_fn(breakpoint);
-        idt.page_fault.set_handler_fn(page_fault);
-        idt.general_protection_fault.set_handler_fn(general_protection_fault_handler);
+
+        let page_fault_options = idt.page_fault.set_handler_fn(page_fault);
+        unsafe {
+            page_fault_options.set_stack_index(gdt::PAGE_FAULT_IST_INDEX);
+        }
+
+        let general_protection_fault_options = idt.general_protection_fault.set_handler_fn(general_protection_fault);
+        unsafe {
+            general_protection_fault_options.set_stack_index(gdt::GENERAL_PROTECTION_FAULT_IST_INDEX);
+        }
+
         let double_fault_options = idt.double_fault.set_handler_fn(double_fault);
         unsafe {
             double_fault_options.set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
 
-        // PIC interrupts
+        // timer interrupts (context switching happens here)
         let timer_options = idt[PICInterrupt::Timer as u8].set_handler_fn(timer_handler_naked);
 
         unsafe {
             timer_options.set_stack_index(gdt::TIMER_INTERRUPT_INDEX);
         }
 
+        // PIC interrupts
         idt[PICInterrupt::Keyboard as u8].set_handler_fn(keyboard::keyboard_interrupt);
-        // TODO: set handler functions to PIC interrupts
         idt
     };
 }
 
 /// 1. Pushes registers to stacks
-/// 2. Calles timer_interrupt with C calling convention (register are popped into process::Context)
+/// 2. Calls timer_interrupt with C calling convention (register are popped into process::Context)
 /// 3. Pops registers modified by timer_interrupt
 #[naked]
 extern "x86-interrupt" fn timer_handler_naked(_stack_frame: InterruptStackFrame) {
@@ -77,8 +86,15 @@ extern "x86-interrupt" fn timer_handler_naked(_stack_frame: InterruptStackFrame)
 
             // First argument in rdi with C calling convention
             "mov rdi, rsp",
-            // Call the hander function
+
+            // Call the handler function
             "call {handler}",
+
+            // if handler function returned non-zero, return value is next stack pointer
+            "cmp rax, 0",
+            "je 2f",        // if rax != 0 {
+            "mov rsp, rax", //   rsp = rax;
+            "2:",           // }
 
             // Pop scratch registers
             "pop r15",
@@ -112,11 +128,22 @@ extern "x86-interrupt" fn timer_handler_naked(_stack_frame: InterruptStackFrame)
     }
 }
 
-extern "C" fn timer_interrupt(context: &process::Context) {
+/// Number of bytes needed to store a Context struct
+pub const INTERRUPT_CONTEXT_SIZE: usize = 20 * 8;
+
+/// Entry point for context switching.
+/// Timer interrupt happens from time to time.
+/// If we want, we can swap the context of the process here.
+extern "C" fn timer_interrupt(context_addr: usize) -> usize {
+    // get stack address of next thread to be run
+    let next_stack = process::schedule_next(context_addr);
+    log!(Level::Info, "next stack is {:x}", next_stack);
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(PICInterrupt::Timer as u8)
     };
+    // return address of next thread to be run (or zero if no need to change)
+    next_stack
 }
 
 extern "x86-interrupt" fn breakpoint(stack_frame: InterruptStackFrame) {
@@ -136,7 +163,7 @@ extern "x86-interrupt" fn page_fault(
     hlt_loop();
 }
 
-extern "x86-interrupt" fn general_protection_fault_handler(
+extern "x86-interrupt" fn general_protection_fault(
     stack_frame: InterruptStackFrame,
     _error_code: u64,
 ) {

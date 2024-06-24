@@ -34,10 +34,9 @@ lazy_static! {
             stack_end
         };
 
-
         // stack for Timer Interrupt (context switching)
-        tss.interrupt_stack_table[TIMER_INTERRUPT_INDEX as usize] = tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize];
-
+        tss.interrupt_stack_table[TIMER_INTERRUPT_INDEX as usize] =
+            tss.interrupt_stack_table[DOUBLE_FAULT_IST_INDEX as usize];
 
         Mutex::new(tss)
     };
@@ -47,6 +46,16 @@ lazy_static! {
 unsafe fn tss_ref() -> &'static TaskStateSegment {
     let tss_ptr = &*TSS.lock() as *const TaskStateSegment;
     &*tss_ptr
+}
+
+/// Changes stack of an entry of the TSS
+/// Used for context switching
+pub fn set_interrupt_stack_table(index: usize, stack_end: VirtAddr) {
+    TSS.lock().interrupt_stack_table[index] = stack_end;
+}
+
+pub fn get_kernel_segments() -> (SegmentSelector, SegmentSelector) {
+    (GDT.1.code_selector, GDT.1.data_selector)
 }
 
 lazy_static! {

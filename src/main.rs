@@ -12,11 +12,11 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use cruzos::apps::gash::Gash;
-use cruzos::task::simple_executor::SimpleExecutor;
-use cruzos::task::Task;
-use cruzos::userspace;
+use cruzos::{
+    apps::gash::Gash, process, task::simple_executor::SimpleExecutor, task::Task, userspace,
+};
 
+use core::arch::asm;
 use core::panic::PanicInfo;
 
 #[allow(unused)]
@@ -40,6 +40,19 @@ async fn example_task(num: u64) {
     log!(Level::Info, "Async number is {num}");
 }
 
+fn f1() {
+    loop {
+        println!("1");
+        x86_64::instructions::hlt();
+    }
+}
+fn f2() {
+    loop {
+        println!("2");
+        x86_64::instructions::hlt();
+    }
+}
+
 /// Main for when tests are not run
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     cruzos::init(boot_info);
@@ -54,6 +67,19 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
         }
     }
 
+    // check if registers are being overwritten on timer interrupt
+    // unsafe {
+    //     asm!("mov r15, 0x42");
+    //     asm!("hlt");
+    // }
+
+    // let r15: i64;
+
+    // unsafe {
+    //     asm!("nop", lateout("r15") r15);
+    // }
+    // println!("r15 After: {r15}");
+
     // show off memory allocation
     let _b = Box::new(56);
 
@@ -61,20 +87,20 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     test_main();
     log!(Level::Info, "\nCruzOS Running!");
 
-    // run userspace code
-    userspace::to_user_mode();
+    process::new_kernel_process(f1);
+    process::new_kernel_process(f2);
 
-    let shell = Arc::new(Mutex::new(Gash::new()));
+    // let shell = Arc::new(Mutex::new(Gash::new()));
 
-    // show off async capabilities
-    let mut executor = SimpleExecutor::new(50);
-    // let future1 = example_task(42);
-    // let future2 = example_task(43);
-    executor.spawn(Task::new("Gash", async move {
-        shell.clone().lock().run().await;
-    }));
-    // executor.spawn(Task::new(future1));
-    executor.run();
+    // // show off async capabilities
+    // let mut executor = SimpleExecutor::new(50);
+    // // let future1 = example_task(42);
+    // // let future2 = example_task(43);
+    // executor.spawn(Task::new("Gash", async move {
+    //     shell.clone().lock().run().await;
+    // }));
+    // // executor.spawn(Task::new(future1));
+    // executor.run();
 
     cruzos::hlt_loop()
 }
