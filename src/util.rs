@@ -9,7 +9,7 @@ macro_rules! err {
 
 // TODO: error trait
 
-use spin::{mutex::Mutex, Mutex, MutexGuard};
+use spin::{Mutex, MutexGuard};
 
 pub struct Locked<T> {
     inner: Mutex<T>,
@@ -31,38 +31,49 @@ impl<T> Locked<T> {
     }
 }
 
-const LOCK_FREE_DEQUE_SIZE: usize = 1024;
+/// Blocks until both locks are acquired, returns the two acquired locks
+pub fn lock_both<'m1_life, 'm2_life, T1, T2>(
+    m1: &'m1_life Mutex<T1>,
+    m2: &'m2_life Mutex<T2>,
+) -> (MutexGuard<'m1_life, T1>, MutexGuard<'m2_life, T2>) {
+    loop {
+        match (m1.try_lock(), m2.try_lock()) {
+            (Some(g1), Some(g2)) => return (g1, g2),
+            _ => continue,
+        };
+    }
+}
+
+const CONCURRENT_DEQUE_SIZE: usize = 1024;
 
 /// Blocking, concurrent circular FIFO queue
 /// Pushing appends to beginning of queue
 /// Popping removes from end of queue
-pub struct Deque<T> {
-    items: [T; LOCK_FREE_DEQUE_SIZE],
+pub struct ConcurrentDeque<T> {
+    items: [T; CONCURRENT_DEQUE_SIZE],
     end: Mutex<usize>,
     start: Mutex<usize>,
 }
 
-impl<T: Copy + Default> LockFreeDeque<T> {
+impl<T: Copy + Default> ConcurrentDeque<T> {
     pub fn new() -> Self {
-        LockFreeDeque {
-            items: [T::default(); LOCK_FREE_DEQUE_SIZE],
+        ConcurrentDeque {
+            items: [T::default(); CONCURRENT_DEQUE_SIZE],
             start: Mutex::new(0),
             end: Mutex::new(0),
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        let start = self.start.lock();
-        let end = self.end.lock();
+        let (start, end) = lock_both(&self.start, &self.end);
 
-        start == end
+        *start == *end
     }
 
     pub fn is_full(&self) -> bool {
-        let start = self.start.lock();
-        let end = self.end.lock();
+        let (start, end) = lock_both(&self.start, &self.end);
 
-        if start == 0 && end == LOCK_FREE_DEQUE_SIZE - 1 || (start == self.end + 1) {
+        if *start == 0 && *end == CONCURRENT_DEQUE_SIZE - 1 || (*start == *end + 1) {
             return true;
         }
         false
@@ -73,12 +84,14 @@ impl<T: Copy + Default> LockFreeDeque<T> {
             return err!("Queue is full");
         }
 
+        let mut end = self.end.lock();
+
         // put at end position
-        self.items[self.end] = item;
-        let old_end = self.end;
+        self.items[*end] = item;
+        let old_end = *end;
 
         // end goes to beginning of queue when it reaches the end
-        self.end = (old_end + 1) % LOCK_FREE_DEQUE_SIZE;
+        *end = (old_end + 1) % CONCURRENT_DEQUE_SIZE;
         Ok(())
     }
 
@@ -87,10 +100,13 @@ impl<T: Copy + Default> LockFreeDeque<T> {
         if self.is_empty() {
             return None;
         }
-        let old_end = self.end;
+
+        let mut end = self.end.lock();
+
+        let old_end = *end;
 
         // end goes to end of queue when it reaches the beginning (just as self.start)
-        self.end = (old_end - 1 + LOCK_FREE_DEQUE_SIZE) % LOCK_FREE_DEQUE_SIZE;
+        *end = (old_end - 1 + CONCURRENT_DEQUE_SIZE) % CONCURRENT_DEQUE_SIZE;
 
         Some(self.items[old_end])
     }
@@ -100,10 +116,11 @@ impl<T: Copy + Default> LockFreeDeque<T> {
         if self.is_empty() {
             return None;
         }
-        let old_start = self.start;
+        let mut start = self.start.lock();
+        let old_start = *start;
 
         // start goes to beginning of queue when it reaches the end (just as self.end)
-        self.start = (old_start + 1) % LOCK_FREE_DEQUE_SIZE;
+        *start = (old_start + 1) % CONCURRENT_DEQUE_SIZE;
 
         Some(self.items[old_start])
     }
