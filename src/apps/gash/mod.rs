@@ -1,4 +1,5 @@
-// use alloc::{borrow::ToOwned, string::ToString};
+#[allow(unused)]
+use alloc::{borrow::ToOwned, string::ToString};
 
 use crate::{keyboard::getc, prelude::*};
 

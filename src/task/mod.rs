@@ -6,6 +6,7 @@ use core::{
     task::{Context, Poll},
 };
 
+#[allow(unused)]
 use crate::prelude::*;
 
 pub mod simple_executor;

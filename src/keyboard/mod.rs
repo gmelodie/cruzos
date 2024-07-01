@@ -1,6 +1,9 @@
-use crate::keyboard::buffer::POP_WAKER;
 use crate::{
     interrupts::{PICInterrupt, PICS},
+    keyboard::{
+        buffer::{PopBufferStream, POP_BUFFER, POP_WAKER, PUSH_BUFFER},
+        layout::{KeyType, Layout, Layoutable},
+    },
     prelude::*,
 };
 use futures::stream::StreamExt;
@@ -8,9 +11,6 @@ use x86_64::{instructions::port::Port, structures::idt::InterruptStackFrame};
 
 mod buffer;
 mod layout;
-
-use buffer::{sync, PopBufferStream, POP_BUFFER, PUSH_BUFFER};
-use layout::{KeyType, Layout, Layoutable};
 
 lazy_static! {
     static ref KEYBOARD: Mutex<Keyboard> = Mutex::new(Keyboard::new()); // TODO: add layout to keyboard
@@ -74,7 +74,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
             let ascii = KEYBOARD.lock().to_ascii(scancode);
             // acquire lock for buffer
             // put char in buffer
-            PUSH_BUFFER.lock().push(ascii);
+            let _ = PUSH_BUFFER.lock().push(ascii);
         }
         KeyType::ESC => (),
         KeyType::Ctrl => (),
@@ -88,7 +88,7 @@ pub extern "x86-interrupt" fn keyboard_interrupt(_stack_frame: InterruptStackFra
     // 2. try to sync PUSH_BUFFER and POP_BUFFER (sometimes we can't cuz POP_BUFFER is locked
     //    somewhere else)
     if let Some(mut pop) = POP_BUFFER.try_lock() {
-        sync(&mut PUSH_BUFFER.lock(), &mut pop);
+        ConcurrentDeque::sync(&mut PUSH_BUFFER.lock(), &mut pop);
     }
 
     unsafe {
