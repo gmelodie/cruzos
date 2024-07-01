@@ -44,7 +44,7 @@ pub fn lock_both<'m1_life, 'm2_life, T1, T2>(
     }
 }
 
-const CONCURRENT_DEQUE_SIZE: usize = 1024;
+const CONCURRENT_DEQUE_SIZE: usize = 4096;
 
 /// Blocking, concurrent circular FIFO queue
 /// Pushing appends to beginning of queue
@@ -112,7 +112,7 @@ impl<T: Copy + Default> ConcurrentDeque<T> {
     }
 
     /// Pops item from start of the queue
-    fn pop(&mut self) -> Option<T> {
+    pub fn pop(&mut self) -> Option<T> {
         if self.is_empty() {
             return None;
         }
@@ -123,5 +123,21 @@ impl<T: Copy + Default> ConcurrentDeque<T> {
         *start = (old_start + 1) % CONCURRENT_DEQUE_SIZE;
 
         Some(self.items[old_start])
+    }
+
+    /// Synchronizes two ConcurrentDeque queues
+    /// Makes the two queues equal to push[pop.start, push.end]
+    pub fn sync(push: &mut ConcurrentDeque<T>, pop: &mut ConcurrentDeque<T>) {
+        let (mut push_start, push_end) = lock_both(&push.start, &push.end);
+        let (pop_start, mut pop_end) = lock_both(&pop.start, &pop.end);
+
+        *push_start = *pop_start;
+        let old_pop_end = *pop_end;
+        *pop_end = *push_end;
+
+        for i in old_pop_end..*push_end {
+            let idx = (i + CONCURRENT_DEQUE_SIZE) % CONCURRENT_DEQUE_SIZE; // need this in case we circled back to start of list
+            pop.items[idx] = push.items[idx];
+        }
     }
 }
