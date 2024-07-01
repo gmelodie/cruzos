@@ -3,7 +3,6 @@ use alloc::sync::Arc;
 use core::sync::atomic::Ordering;
 use core::task::Context;
 use core::task::Waker;
-use spin::Mutex;
 // use x86_64::instructions::interrupts;
 
 use super::Task;
