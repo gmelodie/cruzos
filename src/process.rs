@@ -3,13 +3,13 @@ use crate::{gdt, interrupts::INTERRUPT_CONTEXT_SIZE, prelude::*};
 use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::{instructions::interrupts, VirtAddr};
 
-use alloc::{boxed::Box, collections::vec_deque::VecDeque};
+// use alloc::boxed::Box;
 use lazy_static::lazy_static;
-use spin::RwLock;
 
 lazy_static! {
-    static ref RUNNING_QUEUE: RwLock<VecDeque<Box<Process>>> = RwLock::new(VecDeque::new());
-    static ref CURRENT_PROC: RwLock<Option<Box<Process>>> = RwLock::new(None);
+    static ref RUNNING_QUEUE: Locked<ConcurrentDeque<Process>> =
+        Locked::new(ConcurrentDeque::new(|| Process::new(|| {}, false)));
+    static ref CURRENT_PROC: Locked<Option<Process>> = Locked::new(None);
 }
 
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
@@ -17,16 +17,15 @@ const USER_STACK_SIZE: usize = 4096 * 5;
 
 static CUR_PID: AtomicUsize = AtomicUsize::new(0);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Process {
     id: usize,
-    func: fn() -> (),
     kernel: bool,
     context_addr: u64,
 
-    kernel_stack: Vec<u8>,
+    kernel_stack: [u8; KERNEL_STACK_SIZE],
     kernel_stack_end: u64,
-    user_stack: Vec<u8>,
+    user_stack: [u8; USER_STACK_SIZE],
     user_stack_end: u64,
 }
 
@@ -34,11 +33,11 @@ impl Process {
     pub fn new(func: fn() -> (), kernel: bool) -> Self {
         let id = CUR_PID.fetch_add(1, Ordering::SeqCst);
 
-        let kernel_stack = Vec::with_capacity(KERNEL_STACK_SIZE);
+        let kernel_stack = [0; KERNEL_STACK_SIZE];
         let kernel_stack_end =
             (VirtAddr::from_ptr(kernel_stack.as_ptr()) + KERNEL_STACK_SIZE as u64).as_u64();
 
-        let user_stack = Vec::with_capacity(USER_STACK_SIZE);
+        let user_stack = [0; USER_STACK_SIZE];
         let user_stack_end =
             (VirtAddr::from_ptr(user_stack.as_ptr()) + USER_STACK_SIZE as u64).as_u64();
 
@@ -49,7 +48,6 @@ impl Process {
 
         Process {
             id,
-            func,
             kernel,
             context_addr: context_addr(kernel_stack_end),
 
@@ -120,7 +118,7 @@ impl Context {
 pub fn new_kernel_process(f: fn() -> ()) {
     let proc = Process::new(f, true);
     interrupts::without_interrupts(|| {
-        RUNNING_QUEUE.write().push_back(Box::new(proc));
+        RUNNING_QUEUE.lock().push(proc);
     });
 }
 
@@ -130,17 +128,17 @@ pub fn new_user_process() {} // TODO
 pub fn schedule_next(cur_context_addr: usize) -> usize {
     let cur_context: &mut Context = unsafe { context_from_addr(cur_context_addr as u64) };
 
-    let mut running_queue = RUNNING_QUEUE.write();
-    let mut current_thread = CURRENT_PROC.write();
+    let mut running_queue = RUNNING_QUEUE.lock();
+    let mut current_thread = CURRENT_PROC.lock();
 
     if let Some(mut thread) = current_thread.take() {
         // Save the location of the Context struct
         thread.context_addr = cur_context_addr as u64;
         // Put to the back of the queue
-        running_queue.push_back(thread);
+        running_queue.push(thread);
     }
     // Get the next thread in the queue
-    *current_thread = running_queue.pop_front();
+    *current_thread = running_queue.pop();
     match current_thread.as_ref() {
         Some(thread) => {
             // Set the kernel stack for the next interrupt

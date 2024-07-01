@@ -1,7 +1,7 @@
 use crate::prelude::*;
 lazy_static! {
-    pub static ref PUSH_BUFFER: Mutex<PushBuffer> = Mutex::new(PushBuffer::new());
-    pub static ref POP_BUFFER: Mutex<PopBuffer> = Mutex::new(PopBuffer::new());
+    pub static ref PUSH_BUFFER: Mutex<PushBuffer> = Mutex::new(PushBuffer::new(char::default));
+    pub static ref POP_BUFFER: Mutex<PopBuffer> = Mutex::new(PopBuffer::new(char::default));
 }
 pub static POP_WAKER: AtomicWaker = AtomicWaker::new();
 

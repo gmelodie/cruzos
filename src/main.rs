@@ -53,6 +53,10 @@ fn f2() {
     }
 }
 
+fn run_gash() {
+    Gash::new().run();
+}
+
 /// Main for when tests are not run
 pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     cruzos::init(boot_info);
@@ -89,6 +93,7 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     process::new_kernel_process(f1);
     process::new_kernel_process(f2);
+    // process::new_kernel_process(run_gash); // TODO: this throws a page fault
 
     // let shell = Arc::new(Mutex::new(Gash::new()));
 

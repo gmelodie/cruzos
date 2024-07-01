@@ -55,10 +55,10 @@ pub struct ConcurrentDeque<T> {
     start: Mutex<usize>,
 }
 
-impl<T: Copy + Default> ConcurrentDeque<T> {
-    pub fn new() -> Self {
+impl<T: Copy> ConcurrentDeque<T> {
+    pub fn new(initializer: fn() -> T) -> Self {
         ConcurrentDeque {
-            items: [T::default(); CONCURRENT_DEQUE_SIZE],
+            items: [initializer(); CONCURRENT_DEQUE_SIZE],
             start: Mutex::new(0),
             end: Mutex::new(0),
         }
