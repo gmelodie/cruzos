@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use core::cell::UnsafeCell;
 
 pub type Result<T> = result::Result<T, Box<dyn Error>>;
 
@@ -44,21 +45,21 @@ pub fn lock_both<'m1_life, 'm2_life, T1, T2>(
     }
 }
 
-const CONCURRENT_DEQUE_SIZE: usize = 4096;
+const CONCURRENT_DEQUE_SIZE: usize = 512;
 
 /// Blocking, concurrent circular FIFO queue
 /// Pushing appends to beginning of queue
 /// Popping removes from end of queue
 pub struct ConcurrentDeque<T> {
-    items: [T; CONCURRENT_DEQUE_SIZE],
+    items: UnsafeCell<Vec<T>>,
     end: Mutex<usize>,
     start: Mutex<usize>,
 }
 
-impl<T: Copy> ConcurrentDeque<T> {
-    pub fn new(initializer: fn() -> T) -> Self {
+impl<T: Clone> ConcurrentDeque<T> {
+    pub fn new() -> Self {
         ConcurrentDeque {
-            items: [initializer(); CONCURRENT_DEQUE_SIZE],
+            items: UnsafeCell::new(Vec::new()),
             start: Mutex::new(0),
             end: Mutex::new(0),
         }
@@ -79,7 +80,7 @@ impl<T: Copy> ConcurrentDeque<T> {
         false
     }
 
-    pub fn push(&mut self, item: T) -> Result<()> {
+    pub fn push(&self, item: T) -> Result<()> {
         if self.is_full() {
             return err!("Queue is full");
         }
@@ -87,7 +88,10 @@ impl<T: Copy> ConcurrentDeque<T> {
         let mut end = self.end.lock();
 
         // put at end position
-        self.items[*end] = item;
+        unsafe {
+            let items = &mut *self.items.get();
+        }
+        items[*end] = item;
         let old_end = *end;
 
         // end goes to beginning of queue when it reaches the end
@@ -96,7 +100,7 @@ impl<T: Copy> ConcurrentDeque<T> {
     }
 
     /// Pops item from end of queue
-    pub fn pop_end(&mut self) -> Option<T> {
+    pub fn pop_end(&self) -> Option<T> {
         if self.is_empty() {
             return None;
         }
@@ -108,11 +112,14 @@ impl<T: Copy> ConcurrentDeque<T> {
         // end goes to end of queue when it reaches the beginning (just as self.start)
         *end = (old_end - 1 + CONCURRENT_DEQUE_SIZE) % CONCURRENT_DEQUE_SIZE;
 
-        Some(self.items[old_end])
+        unsafe {
+            let items = &*self.items.get();
+        }
+        Some(items[old_end].clone())
     }
 
     /// Pops item from start of the queue
-    pub fn pop(&mut self) -> Option<T> {
+    pub fn pop(&self) -> Option<T> {
         if self.is_empty() {
             return None;
         }
@@ -122,7 +129,10 @@ impl<T: Copy> ConcurrentDeque<T> {
         // start goes to beginning of queue when it reaches the end (just as self.end)
         *start = (old_start + 1) % CONCURRENT_DEQUE_SIZE;
 
-        Some(self.items[old_start])
+        unsafe {
+            let items = &*self.items.get();
+        }
+        Some(items[old_start].clone())
     }
 
     /// Synchronizes two ConcurrentDeque queues
@@ -137,7 +147,14 @@ impl<T: Copy> ConcurrentDeque<T> {
 
         for i in old_pop_end..*push_end {
             let idx = (i + CONCURRENT_DEQUE_SIZE) % CONCURRENT_DEQUE_SIZE; // need this in case we circled back to start of list
-            pop.items[idx] = push.items[idx];
+            unsafe {
+                let pop_items = &mut *pop.items.get();
+                let push_items = &*push.items.get();
+                pop_items[idx] = push_items[idx].clone();
+            }
         }
     }
 }
+
+unsafe impl<T: Send> Send for ConcurrentDeque<T> {}
+unsafe impl<T: Send> Sync for ConcurrentDeque<T> {}

@@ -1,5 +1,6 @@
 use crate::{gdt, interrupts::INTERRUPT_CONTEXT_SIZE, prelude::*};
 
+use alloc::sync::Arc;
 use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::{instructions::interrupts, VirtAddr};
 
@@ -7,10 +8,11 @@ use x86_64::{instructions::interrupts, VirtAddr};
 use lazy_static::lazy_static;
 
 lazy_static! {
-    static ref RUNNING_QUEUE: Locked<ConcurrentDeque<Process>> =
-        Locked::new(ConcurrentDeque::new(|| Process::new(|| {}, false)));
     static ref CURRENT_PROC: Locked<Option<Process>> = Locked::new(None);
 }
+
+static RUNNING_QUEUE: Arc<ConcurrentDeque<Process>> =
+    Arc::new(ConcurrentDeque::new(|| Process::new(|| {}, false)));
 
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
 const USER_STACK_SIZE: usize = 4096 * 5;
@@ -118,7 +120,7 @@ impl Context {
 pub fn new_kernel_process(f: fn() -> ()) {
     let proc = Process::new(f, true);
     interrupts::without_interrupts(|| {
-        RUNNING_QUEUE.lock().push(proc);
+        RUNNING_QUEUE.clone().push(proc);
     });
 }
 
@@ -126,9 +128,9 @@ pub fn new_user_process() {} // TODO
 
 // TODO: redo this
 pub fn schedule_next(cur_context_addr: usize) -> usize {
-    let cur_context: &mut Context = unsafe { context_from_addr(cur_context_addr as u64) };
+    let _cur_context: &mut Context = unsafe { context_from_addr(cur_context_addr as u64) };
 
-    let mut running_queue = RUNNING_QUEUE.lock();
+    let running_queue = RUNNING_QUEUE.clone();
     let mut current_thread = CURRENT_PROC.lock();
 
     if let Some(mut thread) = current_thread.take() {

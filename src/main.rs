@@ -92,7 +92,9 @@ pub fn kernel_main(boot_info: &'static BootInfo) -> ! {
     log!(Level::Info, "\nCruzOS Running!");
 
     process::new_kernel_process(f1);
+    log!(Level::Info, "First process running");
     process::new_kernel_process(f2);
+    log!(Level::Info, "Second process running");
     // process::new_kernel_process(run_gash); // TODO: this throws a page fault
 
     // let shell = Arc::new(Mutex::new(Gash::new()));
